@@ -1,0 +1,82 @@
+[
+  {
+    "id": "648698514593945",
+    "provider": "mapillary",
+    "mapillaryImageId": "648698514593945",
+    "lat": 35.555044596005,
+    "lng": 139.78526447345,
+    "chunkId": "mesh-139_78-35_55-139_79-35_56",
+    "difficulty": "normal",
+    "tags": [
+      "mapillary",
+      "perspective",
+      "sequence:LlGuoasN1v3FmIcAS5076e"
+    ],
+    "enabled": true,
+    "qaStatus": "unreviewed",
+    "source": "generated",
+    "heading": 145.45664074488,
+    "region": "関東",
+    "prefecture": "東京都"
+  },
+  {
+    "id": "1944874752984751",
+    "provider": "mapillary",
+    "mapillaryImageId": "1944874752984751",
+    "lat": 35.555184600537,
+    "lng": 139.78516509523,
+    "chunkId": "mesh-139_78-35_55-139_79-35_56",
+    "difficulty": "normal",
+    "tags": [
+      "mapillary",
+      "perspective",
+      "sequence:LlGuoasN1v3FmIcAS5076e"
+    ],
+    "enabled": true,
+    "qaStatus": "unreviewed",
+    "source": "generated",
+    "heading": 145.14656490507,
+    "region": "関東",
+    "prefecture": "東京都"
+  },
+  {
+    "id": "2423054244724237",
+    "provider": "mapillary",
+    "mapillaryImageId": "2423054244724237",
+    "lat": 35.555263580457,
+    "lng": 139.78511086243,
+    "chunkId": "mesh-139_78-35_55-139_79-35_56",
+    "difficulty": "normal",
+    "tags": [
+      "mapillary",
+      "perspective",
+      "sequence:LlGuoasN1v3FmIcAS5076e"
+    ],
+    "enabled": true,
+    "qaStatus": "unreviewed",
+    "source": "generated",
+    "heading": 144.8290628418,
+    "region": "関東",
+    "prefecture": "東京都"
+  },
+  {
+    "id": "402151875842681",
+    "provider": "mapillary",
+    "mapillaryImageId": "402151875842681",
+    "lat": 35.555232674938,
+    "lng": 139.7849003604,
+    "chunkId": "mesh-139_78-35_55-139_79-35_56",
+    "difficulty": "normal",
+    "tags": [
+      "mapillary",
+      "perspective",
+      "sequence:shKCv6FA1VQXauNrcjLtbG"
+    ],
+    "enabled": true,
+    "qaStatus": "unreviewed",
+    "source": "generated",
+    "heading": 242.49096860392,
+    "region": "関東",
+    "prefecture": "東京都"
+  }
+]

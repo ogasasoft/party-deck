@@ -1,0 +1,22 @@
+[
+  {
+    "id": "197007692121079",
+    "provider": "mapillary",
+    "mapillaryImageId": "197007692121079",
+    "lat": 35.565436025177,
+    "lng": 139.56539572446,
+    "chunkId": "mesh-139_56-35_56-139_57-35_57",
+    "difficulty": "normal",
+    "tags": [
+      "mapillary",
+      "perspective",
+      "sequence:4xr03d3zx13wvuj90pxxmm"
+    ],
+    "enabled": true,
+    "qaStatus": "unreviewed",
+    "source": "generated",
+    "heading": 102.47941354559,
+    "region": "関東",
+    "prefecture": "東京都"
+  }
+]

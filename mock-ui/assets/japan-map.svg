@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 420" role="img" aria-label="Japan map mock">
+  <rect width="420" height="420" fill="#e8f0e8"/>
+  <path d="M274 38 C306 42 331 62 338 90 C347 123 327 147 298 149 C264 151 244 128 248 96 C251 69 254 42 274 38 Z" fill="#f7f4ea" stroke="#222" stroke-width="3"/>
+  <path d="M238 141 C270 154 291 184 280 214 C269 244 236 250 214 232 C190 212 184 179 199 157 C209 143 224 136 238 141 Z" fill="#f7f4ea" stroke="#222" stroke-width="3"/>
+  <path d="M184 222 C210 238 219 264 205 287 C187 316 144 323 120 299 C101 280 108 248 135 229 C150 219 169 213 184 222 Z" fill="#f7f4ea" stroke="#222" stroke-width="3"/>
+  <path d="M113 294 C129 313 124 337 102 349 C80 361 47 354 36 333 C27 315 41 295 65 289 C85 284 102 282 113 294 Z" fill="#f7f4ea" stroke="#222" stroke-width="3"/>
+  <path d="M138 330 C158 323 177 331 179 347 C182 369 151 382 128 370 C110 361 116 338 138 330 Z" fill="#f7f4ea" stroke="#222" stroke-width="3"/>
+  <path d="M285 260 C304 256 325 267 325 285 C326 307 292 315 274 299 C259 286 266 265 285 260 Z" fill="#f7f4ea" stroke="#222" stroke-width="3"/>
+  <circle cx="246" cy="214" r="7" fill="#d64545"/>
+  <circle cx="203" cy="247" r="6" fill="#0f8b8d"/>
+  <circle cx="154" cy="276" r="6" fill="#f0b429"/>
+  <circle cx="92" cy="324" r="6" fill="#2e67b1"/>
+</svg>

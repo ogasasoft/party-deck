@@ -1,0 +1,62 @@
+[
+  {
+    "id": "294653728954829",
+    "provider": "mapillary",
+    "mapillaryImageId": "294653728954829",
+    "lat": 35.564786460456,
+    "lng": 139.72452659008,
+    "chunkId": "mesh-139_72-35_56-139_73-35_57",
+    "difficulty": "normal",
+    "tags": [
+      "mapillary",
+      "perspective",
+      "sequence:o86sslnnrfm6sluu9nvcsf"
+    ],
+    "enabled": true,
+    "qaStatus": "unreviewed",
+    "source": "generated",
+    "heading": 68.466766790324,
+    "region": "関東",
+    "prefecture": "東京都"
+  },
+  {
+    "id": "766382293979650",
+    "provider": "mapillary",
+    "mapillaryImageId": "766382293979650",
+    "lat": 35.564832879919,
+    "lng": 139.72482106714,
+    "chunkId": "mesh-139_72-35_56-139_73-35_57",
+    "difficulty": "normal",
+    "tags": [
+      "mapillary",
+      "perspective",
+      "sequence:o86sslnnrfm6sluu9nvcsf"
+    ],
+    "enabled": true,
+    "qaStatus": "unreviewed",
+    "source": "generated",
+    "heading": 273.30418051,
+    "region": "関東",
+    "prefecture": "東京都"
+  },
+  {
+    "id": "259761069214255",
+    "provider": "mapillary",
+    "mapillaryImageId": "259761069214255",
+    "lat": 35.564825737302,
+    "lng": 139.72496973055,
+    "chunkId": "mesh-139_72-35_56-139_73-35_57",
+    "difficulty": "normal",
+    "tags": [
+      "mapillary",
+      "perspective",
+      "sequence:o86sslnnrfm6sluu9nvcsf"
+    ],
+    "enabled": true,
+    "qaStatus": "unreviewed",
+    "source": "generated",
+    "heading": 270.12115155193,
+    "region": "関東",
+    "prefecture": "東京都"
+  }
+]

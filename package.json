@@ -1,0 +1,32 @@
+{
+  "name": "party-deck",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "smoke": "tsx scripts/smoke-test.ts",
+    "collect:mapillary": "tsx scripts/collect-mapillary-japan.ts",
+    "collect:mapillary:sample": "tsx scripts/collect-mapillary-japan.ts --sample --install-public --reset",
+    "validate:geo": "tsx scripts/validate-geo-locations.ts"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
+    "typescript": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-router-dom": "latest",
+    "leaflet": "latest"
+  },
+  "devDependencies": {
+    "@types/leaflet": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "tsx": "latest"
+  }
+}
