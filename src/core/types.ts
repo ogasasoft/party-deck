@@ -1,4 +1,4 @@
-export type GameId = "geo" | "number-talk" | "werewolf";
+export type GameId = "geo" | "number-talk" | "werewolf" | "drinking-games";
 
 export type Player = {
   id: string;

@@ -1,5 +1,6 @@
 import { createGeoState, defaultGeoConfig, type GeoConfig, type GeoState } from "../games/geoGuessr";
 import { loadPlayableGeoLocations } from "../games/geoLocationRepository";
+import { createDrinkingGamesState, defaultDrinkingGamesConfig, type DrinkingGamesConfig, type DrinkingGamesState } from "../games/drinkingGames";
 import { createNumberTalkState, defaultNumberTalkConfig, type NumberTalkConfig, type NumberTalkState } from "../games/numberTalk";
 import { createWerewolfState, defaultWerewolfConfig, type WerewolfConfig, type WerewolfState } from "../games/werewolf";
 import type { GameDefinition, GameId, GameSummary } from "./types";
@@ -8,6 +9,7 @@ export type GameDefinitionMap = {
   geo: GameDefinition<GeoConfig, GeoState>;
   "number-talk": GameDefinition<NumberTalkConfig, NumberTalkState>;
   werewolf: GameDefinition<WerewolfConfig, WerewolfState>;
+  "drinking-games": GameDefinition<DrinkingGamesConfig, DrinkingGamesState>;
 };
 
 export const gameDefinitions: GameDefinitionMap = {
@@ -40,6 +42,15 @@ export const gameDefinitions: GameDefinitionMap = {
     maxPlayers: 8,
     defaultConfig: defaultWerewolfConfig,
     createState: ({ players, config, seed }) => createWerewolfState(players, config, seed)
+  },
+  "drinking-games": {
+    id: "drinking-games",
+    title: "飲み会ゲーム辞典",
+    description: "道具なしで遊べる飲み会ゲームを検索し、ルールだけ確認できます。",
+    minPlayers: 1,
+    maxPlayers: 8,
+    defaultConfig: defaultDrinkingGamesConfig,
+    createState: ({ config }) => createDrinkingGamesState(config)
   }
 };
 

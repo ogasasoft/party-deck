@@ -9,6 +9,7 @@ MVP対象ゲーム:
 - 日本マップGuessr
 - ナンバートーク
 - ワンナイト人狼
+- 飲み会ゲーム辞典
 
 ## 重要方針
 
@@ -19,6 +20,8 @@ MVP対象ゲーム:
 - 広告SDKは後回し。初期実装では広告枠と表示可否ロジックだけ入れる。
 - 本家ゲームの文章、画像、音声、UI、お題リストをコピーしない。
 - ルール構造は参考にし、文言とデータはオリジナルで作る。
+- 飲み会ゲーム辞典は道具なしゲームのみを対象にし、表示カテゴリは国だけにする。
+- 飲み会ゲーム辞典のデータはAI/cron更新を想定し、重複判定用の `duplicateKey` と `aiReviewHint` を持つ。
 
 ## 技術スタック
 
@@ -58,8 +61,9 @@ MVPでは以下を採用する。
 5. ナンバートークを実装する。
 6. ワンナイト人狼を実装する。
 7. 日本マップGuessrを静的地点データで実装する。
-8. Mapillary全国地点収集スクリプトを追加する。
-9. 広告枠とAdPolicyを接続する。
+8. 飲み会ゲーム辞典をデータ駆動で実装する。
+9. Mapillary全国地点収集スクリプトを追加する。
+10. 広告枠とAdPolicyを接続する。
 
 最初にナンバートークを作る理由:
 
@@ -154,11 +158,22 @@ src/
         cardDealer.ts
         nightActions.ts
         judge.ts
+    drinking-games/
+      definition.ts
+      types.ts
+      state.ts
+      screens/
+        DrinkingGameBrowserScreen.tsx
+      units/
+        catalog.ts
+        search.ts
+        dedup.ts
   data/
     geo-locations.seed.json
     geo-locations.generated.json
     number-talk-topics.ts
     werewolf-roles.ts
+    drinking-games.ts
 scripts/
   collect-mapillary-japan.ts
   validate-geo-locations.ts

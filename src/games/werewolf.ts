@@ -2,31 +2,32 @@ import { Player } from "../core/types";
 import { shuffle } from "../core/random";
 
 export type RoleId = "villager" | "werewolf" | "seer" | "robber";
+export const WEREWOLF_ROLE_IDS: RoleId[] = ["werewolf", "seer", "robber", "villager"];
+
+export type RoleCounts = Record<RoleId, number>;
 
 export type RoleDefinition = {
   roleId: RoleId;
   name: string;
+  icon: string;
   team: "human" | "werewolf" | "variable";
   nightOrder: number | null;
   description: string;
+  actionSummary: string;
+  detail: string;
 };
 
 export type WerewolfConfig = {
   discussionTimeSec: 180 | 300;
-  roleSet: "basic";
+  roleCounts: RoleCounts;
 };
 
 export type WerewolfPhase =
   | "setup"
   | "roleHandoff"
   | "roleReveal"
-  | "nightSeerHandoff"
-  | "nightSeer"
-  | "nightWerewolfHandoff"
-  | "nightWerewolf"
-  | "nightRobberHandoff"
-  | "nightRobber"
-  | "nightRobberResult"
+  | "nightHandoff"
+  | "nightAction"
   | "discussion"
   | "voteHandoff"
   | "vote"
@@ -63,25 +64,62 @@ export type WerewolfResult = {
 export function defaultWerewolfConfig(): WerewolfConfig {
   return {
     discussionTimeSec: 180,
-    roleSet: "basic"
+    roleCounts: defaultRoleCounts(4)
   };
 }
 
-export function buildRoleSet(playerCount: number): RoleId[] {
-  const cards: RoleId[] = ["werewolf", "werewolf", "seer", "robber"];
-  while (cards.length < playerCount + 2) cards.push("villager");
-  return cards.slice(0, playerCount + 2);
+export function defaultRoleCounts(playerCount: number): RoleCounts {
+  const target = playerCount + 2;
+  return {
+    werewolf: Math.min(2, target),
+    seer: target >= 3 ? 1 : 0,
+    robber: target >= 4 ? 1 : 0,
+    villager: Math.max(0, target - 4)
+  };
+}
+
+export function normalizeWerewolfConfig(config: Partial<WerewolfConfig> | null | undefined, playerCount = 4): WerewolfConfig {
+  const fallback = defaultWerewolfConfig();
+  return {
+    discussionTimeSec: config?.discussionTimeSec === 300 ? 300 : fallback.discussionTimeSec,
+    roleCounts: normalizeRoleCounts(config?.roleCounts, playerCount + 2)
+  };
+}
+
+export function normalizeRoleCounts(counts: Partial<RoleCounts> | null | undefined, targetCards: number): RoleCounts {
+  const next: RoleCounts = {
+    werewolf: sanitizeRoleCount(counts?.werewolf),
+    seer: sanitizeRoleCount(counts?.seer),
+    robber: sanitizeRoleCount(counts?.robber),
+    villager: sanitizeRoleCount(counts?.villager)
+  };
+  const total = countRoleCards(next);
+  if (total < targetCards) {
+    next.villager += targetCards - total;
+  }
+  return next;
+}
+
+export function countRoleCards(counts: RoleCounts) {
+  return WEREWOLF_ROLE_IDS.reduce((sum, roleId) => sum + counts[roleId], 0);
+}
+
+export function buildRoleSet(playerCount: number, roleCounts?: Partial<RoleCounts>): RoleId[] {
+  const targetCards = playerCount + 2;
+  const counts = normalizeRoleCounts(roleCounts ?? defaultRoleCounts(playerCount), targetCards);
+  return WEREWOLF_ROLE_IDS.flatMap((roleId) => Array.from({ length: counts[roleId] }, () => roleId)).slice(0, targetCards);
 }
 
 export function createWerewolfState(players: Player[], config: WerewolfConfig, seed: string): WerewolfState {
-  const cards = shuffle(buildRoleSet(players.length), `${seed}:werewolf-cards`);
+  const normalizedConfig = normalizeWerewolfConfig(config, players.length);
+  const cards = shuffle(buildRoleSet(players.length, normalizedConfig.roleCounts), `${seed}:werewolf-cards`);
   const playerInitialCards: Record<string, RoleId> = {};
   players.forEach((player, index) => {
     playerInitialCards[player.id] = cards[index];
   });
   return {
     phase: "roleHandoff",
-    config,
+    config: normalizedConfig,
     currentPlayerIndex: 0,
     playerInitialCards,
     playerCurrentCards: { ...playerInitialCards },
@@ -121,7 +159,7 @@ export function applySeerAction(state: WerewolfState, actorId: string, selection
 }
 
 export function recordWerewolfAction(state: WerewolfState, players: Player[]) {
-  replaceNightAction(state, { type: "werewolf", actorIds: playersWithRole(state, players, "werewolf").map((player) => player.id) });
+  replaceNightAction(state, { type: "werewolf", actorIds: players.filter((player) => state.playerInitialCards[player.id] === "werewolf").map((player) => player.id) });
   return state;
 }
 
@@ -137,11 +175,8 @@ export function getNightAction<TType extends WerewolfNightAction["type"]>(state:
   return state.nightActions.find((action): action is Extract<WerewolfNightAction, { type: TType }> => action.type === type);
 }
 
-export function nextWerewolfNightPhase(state: WerewolfState, players: Player[], after: "roles" | "seer" | "werewolf" | "robber"): WerewolfPhase {
-  if (after === "roles" && playerWithRole(state, players, "seer")) return "nightSeerHandoff";
-  if ((after === "roles" || after === "seer") && playersWithRole(state, players, "werewolf").length > 0) return "nightWerewolfHandoff";
-  if ((after === "roles" || after === "seer" || after === "werewolf") && playerWithRole(state, players, "robber")) return "nightRobberHandoff";
-  return "discussion";
+export function nextWerewolfNightPhase(_state: WerewolfState, _players: Player[], _after: "roles" | "seer" | "werewolf" | "robber"): WerewolfPhase {
+  return "nightHandoff";
 }
 
 export function judgeWerewolf(state: WerewolfState, players: Player[]): WerewolfResult {
@@ -176,5 +211,18 @@ export function judgeWerewolf(state: WerewolfState, players: Player[]): Werewolf
 }
 
 function replaceNightAction(state: WerewolfState, action: WerewolfNightAction) {
-  state.nightActions = [...state.nightActions.filter((item) => item.type !== action.type), action];
+  state.nightActions = [
+    ...state.nightActions.filter((item) => {
+      if (item.type !== action.type) return true;
+      if ("actorId" in action && action.actorId) {
+        return !("actorId" in item && item.actorId === action.actorId);
+      }
+      return false;
+    }),
+    action
+  ];
+}
+
+function sanitizeRoleCount(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
 }

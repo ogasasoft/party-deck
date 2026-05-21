@@ -60,9 +60,9 @@ button:disabled {
 
 .topbar {
   min-height: 68px;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 14px 16px 10px;
   background: var(--paper);
@@ -70,6 +70,15 @@ button:disabled {
   position: sticky;
   top: 0;
   z-index: 20;
+}
+
+.topbar.has-back {
+  grid-template-columns: auto 1fr auto;
+}
+
+.topbar-right {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .brand {
@@ -209,6 +218,10 @@ h1 {
   font-size: 24px;
 }
 
+.back-button {
+  grid-column: 1;
+}
+
 .primary {
   width: 100%;
   color: #fff;
@@ -314,6 +327,129 @@ h1 {
   padding: 12px;
 }
 
+.rule-card,
+.role-count-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 12px;
+}
+
+.rule-card h2 {
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.rule-card p {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.55;
+}
+
+.rule-card details {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
+.rule-card summary {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  color: var(--teal);
+  cursor: pointer;
+  font-weight: 950;
+}
+
+.rule-card ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.role-count-head,
+.role-count-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.role-count-head strong,
+.role-count-head span,
+.role-count-row strong,
+.role-count-row span {
+  display: block;
+}
+
+.role-count-head span,
+.role-count-row span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.count-ok,
+.count-warn {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.count-ok {
+  color: #155d32;
+  background: #ddf2df;
+}
+
+.count-warn {
+  color: #8f3a2d;
+  background: #fff0ea;
+}
+
+.role-count-list {
+  display: grid;
+  gap: 8px;
+}
+
+.role-count-row {
+  grid-template-columns: auto 1fr auto;
+  padding: 8px;
+  border-radius: 8px;
+  background: #fbf6ee;
+}
+
+.role-count-row .role-symbol {
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  font-size: 22px;
+}
+
+.stepper {
+  display: grid;
+  grid-template-columns: 34px 28px 34px;
+  align-items: center;
+  justify-items: center;
+  gap: 4px;
+}
+
+.stepper button {
+  width: 34px;
+  min-height: 34px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  font-weight: 950;
+}
+
 .setting-row strong,
 .setting-row span {
   display: block;
@@ -361,6 +497,136 @@ h1 {
   color: #8f3a2d;
   background: #fff0ea;
   font-weight: 900;
+}
+
+.search-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 12px;
+}
+
+.field-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.search-input {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  padding: 0 12px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 850;
+}
+
+.filter-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.filter-row button {
+  min-height: 36px;
+  min-width: max-content;
+  border-radius: 999px;
+  padding: 0 12px;
+  background: #f0e9df;
+  color: var(--muted);
+  font-weight: 950;
+}
+
+.filter-row button.active {
+  background: var(--ink);
+  color: #fff;
+}
+
+.drink-game-list {
+  display: grid;
+  gap: 12px;
+}
+
+.drink-game-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 12px;
+}
+
+.drink-game-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.drink-game-head h2 {
+  margin-bottom: 6px;
+  font-size: 18px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.drink-game-head p {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.drink-game-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.drink-game-meta span {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 9px;
+  background: #fbf2e7;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.drink-game-details {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.55;
+}
+
+.drink-game-details summary {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  color: var(--teal);
+  cursor: pointer;
+  font-weight: 950;
+}
+
+.drink-game-details ol {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+
+.alias-line {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
 }
 
 .topic {
@@ -423,9 +689,34 @@ h1 {
   font-weight: 950;
 }
 
+.role-symbol-werewolf {
+  background: #2a2020;
+}
+
+.role-symbol-seer {
+  background: #1f4966;
+}
+
+.role-symbol-robber {
+  background: #57412a;
+}
+
+.role-symbol-villager {
+  background: #2d5c44;
+}
+
 .role-card h2 {
   margin-bottom: 8px;
   font-size: 30px;
+}
+
+.role-note {
+  width: 100%;
+  text-align: left;
+}
+
+.compact-role-card {
+  min-height: 190px;
 }
 
 .order-item {
@@ -527,12 +818,41 @@ h1 {
   background: #161616;
 }
 
-.street-image {
+.street-image-pan {
   position: absolute;
   inset: 0;
-  width: 100%;
+  overflow: hidden;
+  touch-action: pan-y;
+  cursor: grab;
+}
+
+.street-image-pan:active {
+  cursor: grabbing;
+}
+
+.street-image {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -40%;
+  width: 180%;
   height: 100%;
   object-fit: cover;
+  user-select: none;
+  will-change: transform;
+}
+
+.pan-hint {
+  position: absolute;
+  left: 12px;
+  bottom: 86px;
+  z-index: 2;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: rgba(23, 23, 23, 0.72);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 950;
 }
 
 .street-hud {
@@ -601,11 +921,13 @@ h1 {
 .map-pin-wrapper {
   background: transparent;
   border: 0;
+  width: 30px !important;
+  height: 38px !important;
 }
 
 .map-pin {
-  width: 26px;
-  height: 32px;
+  width: 30px;
+  height: 38px;
   display: block;
   position: relative;
 }
@@ -619,24 +941,25 @@ h1 {
   border: 2px solid #fff;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.24);
   transform: rotate(-45deg);
+  transform-origin: 50% 50%;
 }
 
 .map-pin::after {
   content: "";
   position: absolute;
-  width: 8px;
-  height: 8px;
-  left: 9px;
-  top: 8px;
+  width: 9px;
+  height: 9px;
+  left: 10px;
+  top: 9px;
   border-radius: 999px;
   background: #fff;
 }
 
 .map-pin.correct::after {
-  width: 12px;
-  height: 12px;
-  left: 7px;
-  top: 6px;
+  width: 13px;
+  height: 13px;
+  left: 8px;
+  top: 7px;
   background: var(--yellow);
 }
 

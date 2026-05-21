@@ -3,11 +3,13 @@ import { distanceMeters } from "../src/core/distance";
 import { games, getGameDefinition } from "../src/core/gameRegistry";
 import { formatClock } from "../src/core/time";
 import { DEFAULT_PLAYERS } from "../src/core/types";
+import { drinkingGames } from "../src/data/drinkingGames";
 import { createGeoAnswer, createGeoState, currentGeoLocation, defaultGeoConfig } from "../src/games/geoGuessr";
+import { createDrinkingGamesState, defaultDrinkingGamesConfig, filterDrinkingGames } from "../src/games/drinkingGames";
 import { createMapillaryImageEndpoint } from "../src/games/mapillaryProvider";
 import { numberTalkTopics } from "../src/data/numberTopics";
 import { createNumberTalkState, defaultNumberTalkConfig, isNumberOrderCorrect } from "../src/games/numberTalk";
-import { applyRobberAction, applySeerAction, buildRoleSet, createWerewolfState, defaultWerewolfConfig, getNightAction, judgeWerewolf, nextWerewolfNightPhase, type WerewolfState, type WerewolfVote } from "../src/games/werewolf";
+import { applyRobberAction, applySeerAction, buildRoleSet, countRoleCards, createWerewolfState, defaultWerewolfConfig, getNightAction, judgeWerewolf, type WerewolfState, type WerewolfVote } from "../src/games/werewolf";
 import { assignJapanRegion, isPointInJapan } from "./geo-quality";
 
 const players = DEFAULT_PLAYERS.slice(0, 4);
@@ -15,11 +17,12 @@ const players = DEFAULT_PLAYERS.slice(0, 4);
 function smokeGameRegistry() {
   assert.deepEqual(
     games.map((game) => game.id),
-    ["geo", "number-talk", "werewolf"]
+    ["geo", "number-talk", "werewolf", "drinking-games"]
   );
   assert.equal(getGameDefinition("geo").minPlayers, 2);
   assert.equal(getGameDefinition("number-talk").defaultConfig().numberMax, 100);
-  assert.equal(getGameDefinition("werewolf").defaultConfig().roleSet, "basic");
+  assert.equal(countRoleCards(getGameDefinition("werewolf").defaultConfig().roleCounts), players.length + 2);
+  assert.equal(getGameDefinition("drinking-games").defaultConfig().viewMode, "database");
   assert.equal(formatClock(180), "3:00");
   assert.equal(formatClock(5), "0:05");
 }
@@ -64,7 +67,6 @@ function smokeWerewolf() {
     centerCards: ["villager", "werewolf"] as ["villager", "werewolf"],
     nightActions: []
   };
-  assert.equal(nextWerewolfNightPhase(actionState, players, "roles"), "nightSeerHandoff");
   applySeerAction(actionState, players[0].id, { mode: "player", targetPlayerId: players[1].id });
   const seerAction = getNightAction(actionState, "seer");
   assert.equal(seerAction?.mode, "player");
@@ -98,7 +100,7 @@ function smokeWerewolf() {
 
 function smokeGeoGuessr() {
   const state = createGeoState(players, defaultGeoConfig(), "smoke-geo");
-  assert.equal(state.roundLocations.length, state.config.rounds);
+  assert.equal(state.roundLocations.length, 1);
   const location = currentGeoLocation(state);
   const answer = createGeoAnswer(state, players[0].id, { lat: location.lat, lng: location.lng });
   assert.equal(answer.distanceMeters, 0);
@@ -122,9 +124,22 @@ function smokeGeoGuessr() {
   assert.equal(isPointInJapan(25.033, 121.565), false);
 }
 
+function smokeDrinkingGames() {
+  assert.ok(drinkingGames.length >= 40);
+  assert.equal(new Set(drinkingGames.map((game) => game.id)).size, drinkingGames.length);
+  assert.ok(drinkingGames.every((game) => game.noEquipment));
+  assert.ok(drinkingGames.every((game) => game.rules.length >= 3));
+  assert.ok(drinkingGames.every((game) => game.duplicateKey.length > 0));
+
+  const state = createDrinkingGamesState(defaultDrinkingGamesConfig());
+  assert.equal(filterDrinkingGames({ ...state, query: "NG", country: "all" }).some((game) => game.id === "ng-word"), true);
+  assert.equal(filterDrinkingGames({ ...state, query: "", country: "日本" }).every((game) => game.country === "日本"), true);
+}
+
 smokeGameRegistry();
 smokeNumberTalk();
 smokeWerewolf();
 smokeGeoGuessr();
+smokeDrinkingGames();
 
 console.log("smoke ok");

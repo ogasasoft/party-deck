@@ -9,6 +9,7 @@
 - 日本マップGuessr
 - ナンバートーク
 - ワンナイト人狼
+- 飲み会ゲーム辞典
 
 ## 設計原則
 
@@ -72,10 +73,17 @@ src/
       state.ts
       screens/
       units/
+    drinking-games/
+      definition.ts
+      types.ts
+      state.ts
+      screens/
+      units/
   data/
     geo-locations/
     number-talk-topics/
     werewolf-roles/
+    drinking-games/
 ```
 
 ## 共通Unit
@@ -817,6 +825,61 @@ type WerewolfVote = {
 
 - 初期役職、最終役職、中央カード、投票先、勝利陣営を表示する。
 
+## 飲み会ゲーム辞典 Unit
+
+### U-DRINK-001 DrinkingGameCatalog Unit
+
+責務:
+
+- 道具なしで遊べる飲み会ゲームのルールデータを保持する。
+- UI表示用にはタイトル、概要、国、人数、時間、ルールだけを返す。
+- AI/cron更新用には別名、重複判定キー、参照元、レビュー日を保持する。
+
+主な型:
+
+```ts
+type DrinkingGameRecord = {
+  id: string;
+  title: string;
+  aliases: string[];
+  country?: "日本" | "アメリカ" | "イギリス" | "国際";
+  minPlayers: number;
+  maxPlayers?: number;
+  durationMin: number;
+  summary: string;
+  rules: string[];
+  noEquipment: true;
+  duplicateKey: string;
+  aiReviewHint: string;
+  sourceRefs: string[];
+  reviewedAt: string;
+};
+```
+
+### U-DRINK-002 DrinkingGameSearch Unit
+
+責務:
+
+- ゲーム名、別名、概要、ルール本文で検索する。
+- 国フィルタで絞り込む。
+- カテゴリ表示は国だけに限定し、内部の判定用mechanicsはUIカテゴリとして出さない。
+
+### U-DRINK-003 DrinkingGameDedup Unit
+
+責務:
+
+- AI/cronが新候補を追加する前に、既存レコードと重複しないか判定する。
+- `duplicateKey`、`aliases`、ルールの核となるmechanicsを見て同一系統を判定する。
+- 同一系統なら新規追加せず、既存レコードへ別名や参照元を追記する。
+
+### U-DRINK-004 DrinkingGameBrowser Unit
+
+責務:
+
+- ルール説明だけを閲覧する画面を提供する。
+- 勝敗判定、秘密情報、受け渡しは持たない。
+- 他ゲームのstateへ依存しない。
+
 ## Game State分離
 
 ### 共通session envelope
@@ -838,6 +901,7 @@ party:v1:sessions:{sessionId}:meta
 party:v1:sessions:{sessionId}:game:geo-guessr
 party:v1:sessions:{sessionId}:game:number-talk
 party:v1:sessions:{sessionId}:game:onenight-werewolf
+party:v1:sessions:{sessionId}:game:drinking-games
 ```
 
 禁止事項:
@@ -865,6 +929,7 @@ core -> games/*
 games/geo-guessr -> games/number-talk
 games/number-talk -> games/onenight-werewolf
 games/onenight-werewolf -> games/geo-guessr
+games/drinking-games -> games/*
 ```
 
 ## 主要フロー
@@ -924,6 +989,16 @@ flowchart TD
   F --> G["議論"]
   G --> H["秘密投票"]
   H --> I["役職/投票/勝敗公開"]
+```
+
+### 飲み会ゲーム辞典フロー
+
+```mermaid
+flowchart TD
+  A["設定"] --> B["一覧表示"]
+  B --> C["検索/国フィルタ"]
+  C --> D["ルール詳細を開く"]
+  D --> B
 ```
 
 ## テスト方針

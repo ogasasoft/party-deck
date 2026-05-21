@@ -1,0 +1,154 @@
+# AI開発エージェント向けガイド
+
+このリポジトリは、スマホ1台を回して遊ぶパーティゲーム集 `Party Deck MVP` です。別のAIや開発者が途中参加しても壊しにくいように、作業前にこのファイルを読んでください。
+
+## 最初に把握すること
+
+- 公開URL: https://party-deck.vercel.app
+- GitHub: https://github.com/ogasasoft/party-deck
+- 本番ホスティング: Vercel `party-deck`
+- 現在のブランチ運用: `main` へpushするとVercel本番デプロイ
+- 秘密情報: `.env.local` とVercel環境変数にMapillary tokenがある。値を表示、ログ出力、コミットしない。
+
+## プロダクト方針
+
+- ログイン、アカウント、メール、電話番号、SNS連携、端末位置情報は使わない。
+- プレイヤー情報はニックネームと担当色のみ。
+- 1台のスマホを順番に受け渡して遊ぶ。
+- 最大8人。
+- 初期ゲームは日本マップGuessr、ナンバートーク、ワンナイト人狼、飲み会ゲーム辞典。
+- 収益化は広告想定だが、秘密情報や回答操作を邪魔しないことを優先する。
+- 本家ゲームの文章、画像、音声、UI、お題リストをコピーしない。ルール構造の参考に留める。
+
+## 重要ドキュメント
+
+- `README.md`: 人間向けの入口、セットアップ、現状。
+- `docs/maintenance-guide.md`: 保守引き継ぎ、変更手順、QA。
+- `docs/task-list.md`: 現在のタスク状態。実装後は必要に応じて更新する。
+- `docs/user-stories.md`: 仕様判断の最上位。
+- `docs/system-design-units.md`: unit境界と依存ルール。
+- `docs/implementation-spec.md`: 実装仕様。
+- `docs/drinking-games-database.md`: 飲み会ゲーム辞典の追加、重複判定、AI更新ルール。
+- `docs/mapillary-integration-notes.md`: Mapillary連携方針と収集結果。
+- `docs/later-checklist.md`: 後回しタスク、全国データ拡張時の確認項目。
+
+## よく使うコマンド
+
+```sh
+npm install
+npm run dev
+npm run smoke
+npm run typecheck
+npm run build
+npm run validate:geo
+```
+
+変更後の基本確認:
+
+1. ロジック変更: `npm run smoke`
+2. TypeScript変更: `npm run typecheck`
+3. 配布前: `npm run build`
+4. UI変更: `npm run dev` でスマホ幅をブラウザ確認
+
+## 実装構造
+
+```txt
+src/App.tsx                    # MVPの画面進行の中心
+src/core/gameRegistry.ts       # ゲーム登録
+src/core/types.ts              # 共通型とGameId
+src/core/storage.ts            # localStorage保存
+src/core/adPolicy.ts           # 広告表示ルール
+src/games/geoGuessr.ts         # Guessr状態、回答、採点
+src/games/geoLocationRepository.ts
+src/games/mapillaryProvider.ts
+src/games/numberTalk.ts
+src/games/werewolf.ts
+src/games/drinkingGames.ts
+src/data/numberTopics.ts
+src/data/werewolfRoles.ts
+src/data/drinkingGames.ts
+public/data/geo/               # 本番出題地点データ
+scripts/                       # 収集、検証、smoke
+```
+
+`App.tsx` はまだMVP用に大きいです。分割する場合は、まず現在の進行フローを保ったまま、ゲームごとの画面を独立コンポーネントへ移してください。
+
+## ゲーム追加ルール
+
+新しいゲームを追加するときは次の順番を守ってください。
+
+1. `src/core/types.ts` の `GameId` に追加する。
+2. `src/games/<game>.ts` にゲーム固有の型、config、state生成、判定ロジックを置く。
+3. `src/core/gameRegistry.ts` に `GameDefinition` として登録する。
+4. `App.tsx` へsetup/game画面を接続する。
+5. 保存keyが既存ゲームと混ざらないことを確認する。
+6. 秘密情報の受け渡し、リロード、広告非表示を確認する。
+7. `docs/task-list.md` と必要な仕様docsを更新する。
+
+飲み会ゲーム辞典へデータを追加するときは、`docs/drinking-games-database.md` を先に読んでください。AI/cron更新では、同じ遊びを別名で重複追加せず、既存レコードの `aliases` や `sourceRefs` へ寄せます。
+
+禁止:
+
+- 他ゲームのstateや型に直接依存する。
+- 汎用coreからゲーム固有ファイルをimportする。
+- 同じlocalStorage keyに複数ゲームの進行を混ぜる。
+
+## 秘密情報と広告
+
+秘密情報の代表:
+
+- ナンバートークの数字
+- ワンナイト人狼の役職、夜行動、投票
+- Guessrの前プレイヤーの回答ピン、距離、スコア
+
+次の画面では広告を出さないでください。
+
+- 受け渡し
+- 秘密確認
+- Guessr回答中
+- ワンナイト人狼投票中
+- 夜行動中
+
+広告表示判断は `src/core/adPolicy.ts` を通してください。
+
+## Mapillary運用
+
+- ブラウザアプリは `VITE_MAPILLARY_ACCESS_TOKEN` を使う。
+- 収集スクリプトは `MAPILLARY_ACCESS_TOKEN` を使う。
+- `public/data/geo/playable-index.json` と `public/data/geo/chunks/*.json` が本番アプリの出題データ。
+- `data-generated/` は生成途中の作業ディレクトリでgit管理外。
+- Mapillary画像は `src/games/mapillaryProvider.ts` でアプリ内部型へ変換する。UIからMapillaryの生responseに直接依存しない。
+- attributionリンクを消さない。
+
+## リリース前チェック
+
+最低限:
+
+```sh
+npm run smoke
+npm run typecheck
+npm run build
+```
+
+UI変更がある場合:
+
+- トップ、プレイヤー設定、3ゲームのsetupをスマホ幅で確認する。
+- 飲み会ゲーム辞典で検索と国フィルタが動くことを確認する。
+- ナンバートークを結果まで進める。
+- ワンナイト人狼を結果まで進める。
+- 日本マップGuessrでMapillary画像が出ることを確認する。
+- リロード時に秘密情報へ直接戻らないことを確認する。
+
+デプロイ後:
+
+- https://party-deck.vercel.app が200で返ること。
+- トップ画面でコンソールエラーがないこと。
+- GuessrでMapillary実画像が表示されること。
+
+## ドキュメント更新ルール
+
+- 実装状態が変わったら `docs/task-list.md` を更新する。
+- 仕様判断を変えたら `docs/user-stories.md` または `docs/implementation-spec.md` を更新する。
+- 飲み会ゲーム辞典の追加方針を変えたら `docs/drinking-games-database.md` を更新する。
+- Mapillary収集や品質方針を変えたら `docs/mapillary-integration-notes.md` と `docs/later-checklist.md` を更新する。
+- 他のAIが次に迷いそうなことは `docs/maintenance-guide.md` に追記する。

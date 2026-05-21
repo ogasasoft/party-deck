@@ -28,6 +28,13 @@ import {
   totalGeoScore
 } from "./games/geoGuessr";
 import {
+  defaultDrinkingGamesConfig,
+  drinkingGameCountries,
+  filterDrinkingGames,
+  type DrinkingGamesConfig,
+  type DrinkingGamesState
+} from "./games/drinkingGames";
+import {
   defaultNumberTalkConfig,
   getNumberForPlayer,
   isNumberOrderCorrect,
@@ -39,13 +46,16 @@ import { roleDefinitions } from "./data/werewolfRoles";
 import {
   applyRobberAction,
   applySeerAction,
+  countRoleCards,
+  defaultRoleCounts,
   defaultWerewolfConfig,
-  getNightAction,
   judgeWerewolf,
-  nextWerewolfNightPhase,
-  playerWithRole,
-  playersWithRole,
+  normalizeWerewolfConfig,
   recordWerewolfAction,
+  WEREWOLF_ROLE_IDS,
+  type RoleCounts,
+  type RoleId,
+  type WerewolfNightAction,
   WerewolfConfig,
   WerewolfState,
   WerewolfVote
@@ -61,6 +71,7 @@ type PersistedAppState = {
   geoConfig: GeoConfig;
   numberConfig: NumberTalkConfig;
   werewolfConfig: WerewolfConfig;
+  drinkingGamesConfig: DrinkingGamesConfig;
   activeSession: ActiveSessionRef | null;
 };
 
@@ -68,6 +79,7 @@ type RestoredAppState = PersistedAppState & {
   geoState: GeoState | null;
   numberState: NumberTalkState | null;
   werewolfState: WerewolfState | null;
+  drinkingGamesState: DrinkingGamesState | null;
 };
 
 export function App() {
@@ -77,10 +89,12 @@ export function App() {
   const [players, setPlayers] = useState<Player[]>(() => restored?.players ?? loadPlayers());
   const [geoConfig, setGeoConfig] = useState<GeoConfig>(() => restored?.geoConfig ?? defaultGeoConfig());
   const [numberConfig, setNumberConfig] = useState<NumberTalkConfig>(() => restored?.numberConfig ?? defaultNumberTalkConfig());
-  const [werewolfConfig, setWerewolfConfig] = useState<WerewolfConfig>(() => restored?.werewolfConfig ?? defaultWerewolfConfig());
+  const [werewolfConfig, setWerewolfConfig] = useState<WerewolfConfig>(() => normalizeWerewolfConfig(restored?.werewolfConfig ?? defaultWerewolfConfig(), players.length));
+  const [drinkingGamesConfig] = useState<DrinkingGamesConfig>(() => restored?.drinkingGamesConfig ?? defaultDrinkingGamesConfig());
   const [geoState, setGeoState] = useState<GeoState | null>(restored?.geoState ?? null);
   const [numberState, setNumberState] = useState<NumberTalkState | null>(restored?.numberState ?? null);
   const [werewolfState, setWerewolfState] = useState<WerewolfState | null>(restored?.werewolfState ?? null);
+  const [drinkingGamesState, setDrinkingGamesState] = useState<DrinkingGamesState | null>(restored?.drinkingGamesState ?? null);
   const [activeSession, setActiveSession] = useState<ActiveSessionRef | null>(restored?.activeSession ?? null);
   const [isStarting, setIsStarting] = useState(false);
 
@@ -90,7 +104,8 @@ export function App() {
       ? getActiveGameState(activeSession.gameId, {
           geoState,
           numberState,
-          werewolfState
+          werewolfState,
+          drinkingGamesState
         })
       : null;
     if (activeSession && gameState) {
@@ -110,9 +125,10 @@ export function App() {
       geoConfig,
       numberConfig,
       werewolfConfig,
+      drinkingGamesConfig,
       activeSession
     } satisfies PersistedAppState);
-  }, [screen, selectedGame, players, geoConfig, numberConfig, werewolfConfig, geoState, numberState, werewolfState, activeSession]);
+  }, [screen, selectedGame, players, geoConfig, numberConfig, werewolfConfig, drinkingGamesConfig, geoState, numberState, werewolfState, drinkingGamesState, activeSession]);
 
   const selectedSummary = selectedGame ? getGameDefinition(selectedGame) : null;
 
@@ -122,6 +138,7 @@ export function App() {
     setGeoState(null);
     setNumberState(null);
     setWerewolfState(null);
+    setDrinkingGamesState(null);
     setScreen("home");
     setSelectedGame(null);
     clearAppState();
@@ -133,6 +150,7 @@ export function App() {
     setGeoState(null);
     setNumberState(null);
     setWerewolfState(null);
+    setDrinkingGamesState(null);
     setSelectedGame(gameId);
     setScreen("setup");
   }
@@ -145,22 +163,32 @@ export function App() {
       if (!selectedGame) return;
       const nextSession = { sessionId: createSessionId(selectedGame), gameId: selectedGame };
       if (selectedGame === "geo") {
-        const state = await getGameDefinition("geo").createState({ players, config: geoConfig, seed });
+        const state = await getGameDefinition("geo").createState({ players, config: { ...geoConfig, rounds: 1 }, seed });
         setGeoState(state);
         setNumberState(null);
         setWerewolfState(null);
+        setDrinkingGamesState(null);
       }
       if (selectedGame === "number-talk") {
         const state = await getGameDefinition("number-talk").createState({ players, config: numberConfig, seed });
         setNumberState(state);
         setGeoState(null);
         setWerewolfState(null);
+        setDrinkingGamesState(null);
       }
       if (selectedGame === "werewolf") {
         const state = await getGameDefinition("werewolf").createState({ players, config: werewolfConfig, seed });
         setWerewolfState(state);
         setGeoState(null);
         setNumberState(null);
+        setDrinkingGamesState(null);
+      }
+      if (selectedGame === "drinking-games") {
+        const state = await getGameDefinition("drinking-games").createState({ players, config: drinkingGamesConfig, seed });
+        setDrinkingGamesState(state);
+        setGeoState(null);
+        setNumberState(null);
+        setWerewolfState(null);
       }
       setActiveSession(nextSession);
       setScreen("game");
@@ -189,13 +217,16 @@ export function App() {
         />
       )}
       {screen === "game" && selectedGame === "number-talk" && numberState && (
-        <NumberTalkGame state={numberState} setState={setNumberState} players={players} onHome={navigateHome} />
+        <NumberTalkGame state={numberState} setState={setNumberState} players={players} onHome={navigateHome} onRestart={startGame} />
       )}
       {screen === "game" && selectedGame === "werewolf" && werewolfState && (
-        <WerewolfGame state={werewolfState} setState={setWerewolfState} players={players} onHome={navigateHome} />
+        <WerewolfGame state={werewolfState} setState={setWerewolfState} players={players} onHome={navigateHome} onRestart={startGame} />
       )}
       {screen === "game" && selectedGame === "geo" && geoState && (
-        <GeoGame state={geoState} setState={setGeoState} players={players} onHome={navigateHome} />
+        <GeoGame state={geoState} setState={setGeoState} players={players} onHome={navigateHome} onRestart={startGame} />
+      )}
+      {screen === "game" && selectedGame === "drinking-games" && drinkingGamesState && (
+        <DrinkingGamesBrowser state={drinkingGamesState} setState={setDrinkingGamesState} onHome={navigateHome} />
       )}
     </main>
   );
@@ -203,7 +234,12 @@ export function App() {
 
 function Topbar(props: { title: string; eyebrow?: string; onBack?: () => void; right?: React.ReactNode }) {
   return (
-    <header className="topbar">
+    <header className={`topbar ${props.onBack ? "has-back" : ""}`}>
+      {props.onBack && (
+        <button className="icon-button back-button" type="button" onClick={props.onBack} aria-label="戻る">
+          ‹
+        </button>
+      )}
       <div className="brand">
         <div className="mark" aria-hidden="true" />
         <div>
@@ -211,13 +247,7 @@ function Topbar(props: { title: string; eyebrow?: string; onBack?: () => void; r
           <h1>{props.title}</h1>
         </div>
       </div>
-      {props.onBack ? (
-        <button className="icon-button" type="button" onClick={props.onBack} aria-label="戻る">
-          ‹
-        </button>
-      ) : (
-        props.right
-      )}
+      <div className="topbar-right">{props.right}</div>
     </header>
   );
 }
@@ -324,23 +354,30 @@ function SetupScreen(props: {
   onStart: () => void;
   isStarting: boolean;
 }) {
-  const canStart = props.players.length >= props.game.minPlayers && props.players.length <= props.game.maxPlayers;
+  const roleTargetCards = props.players.length + 2;
+  const werewolfConfig: WerewolfConfig = {
+    discussionTimeSec: props.werewolfConfig.discussionTimeSec === 300 ? 300 : 180,
+    roleCounts: props.werewolfConfig.roleCounts ?? defaultRoleCounts(props.players.length)
+  };
+  const roleTotalCards = countRoleCards(werewolfConfig.roleCounts);
+  const hasValidPlayerCount = props.players.length >= props.game.minPlayers && props.players.length <= props.game.maxPlayers;
+  const hasValidRoleCount = props.game.id !== "werewolf" || roleTotalCards === roleTargetCards;
+  const canStart = hasValidPlayerCount && hasValidRoleCount;
 
   return (
     <section className="screen">
       <Topbar title={props.game.title} eyebrow="Game Setup" onBack={props.onBack} />
       <div className="content">
         <PlayerStrip players={props.players} />
-        {!canStart && <div className="notice">{props.game.minPlayers}人以上で開始できます。</div>}
+        {!hasValidPlayerCount && <div className="notice">{props.game.minPlayers}人以上で開始できます。</div>}
+        {props.game.id === "werewolf" && !hasValidRoleCount && <div className="notice">カードを合計{roleTargetCards}枚にしてください。</div>}
         {props.game.id === "geo" && (
           <>
-            <SettingRow title="ラウンド" detail="全員が同じ地点を回答">
-              <Segmented
-                value={String(props.geoConfig.rounds)}
-                options={["3", "5"]}
-                onChange={(value) => props.setGeoConfig({ ...props.geoConfig, rounds: Number(value) as 3 | 5 })}
-              />
-            </SettingRow>
+            <RuleDetails
+              title="ルール"
+              summary="全員が同じ日本の地点画像を見て、地図にピンを刺します。"
+              details={["1問で勝負します。", "地点移動はなしですが、画像は左右に動かして見られます。", "全員の回答後、正解地点と距離、点数を表示します。"]}
+            />
             <SettingRow title="時間" detail="1人ごとの回答時間">
               <Segmented
                 value={String(props.geoConfig.timeLimitSec)}
@@ -349,11 +386,15 @@ function SetupScreen(props: {
                 onChange={(value) => props.setGeoConfig({ ...props.geoConfig, timeLimitSec: Number(value) as 0 | 60 | 90 })}
               />
             </SettingRow>
-            <Note title="出題地点は自動選択" text="全員が同じ地点を順番に回答します。移動なし固定の画像で遊びます。" />
           </>
         )}
         {props.game.id === "number-talk" && (
           <>
+            <RuleDetails
+              title="ルール"
+              summary="自分の数字を直接言わず、お題に沿って会話し、小さい順に並びます。"
+              details={["数字は1から100で固定です。", "手札は1人1枚です。", "全員の数字確認後、会話して並び順を決め、結果で数字を公開します。"]}
+            />
             <SettingRow title="お題" detail="カテゴリを選択">
               <Segmented
                 value={props.numberConfig.topicCategory}
@@ -362,7 +403,7 @@ function SetupScreen(props: {
                 onChange={(value) => props.setNumberConfig({ ...props.numberConfig, topicCategory: value as NumberTalkCategory })}
               />
             </SettingRow>
-            <SettingRow title="会話" detail="数字を直接言わない">
+            <SettingRow title="時間" detail="会話時間">
               <Segmented
                 value={String(props.numberConfig.discussionTimeSec)}
                 options={["180", "300"]}
@@ -370,25 +411,43 @@ function SetupScreen(props: {
                 onChange={(value) => props.setNumberConfig({ ...props.numberConfig, discussionTimeSec: Number(value) as 180 | 300 })}
               />
             </SettingRow>
-            <Note title="数字は1-100固定、手札は1人1枚" text="各プレイヤーは自分の数字だけを確認して会話します。" />
           </>
         )}
         {props.game.id === "werewolf" && (
           <>
-            <div className="topic">使用カードはプレイヤー数+2枚</div>
+            <RuleDetails
+              title="ルール"
+              summary="役職を確認し、夜の行動、議論、投票で人狼を探します。"
+              details={["カードはプレイヤー数+2枚です。", "夜は全員が名前順に画面を見ます。役職が特定されないよう、行動がない人にも夜画面があります。", "怪盗が交換した場合、最終役職で勝敗を判定します。"]}
+            />
+            <RoleCountEditor
+              counts={werewolfConfig.roleCounts}
+              targetCards={roleTargetCards}
+              onChange={(roleCounts) => props.setWerewolfConfig({ ...werewolfConfig, roleCounts })}
+            />
             <SettingRow title="議論" detail="投票前の会話時間">
               <Segmented
                 value={String(props.werewolfConfig.discussionTimeSec)}
                 options={["180", "300"]}
                 labels={{ "180": "3分", "300": "5分" }}
-                onChange={(value) => props.setWerewolfConfig({ ...props.werewolfConfig, discussionTimeSec: Number(value) as 180 | 300 })}
+                onChange={(value) => props.setWerewolfConfig({ ...werewolfConfig, discussionTimeSec: Number(value) as 180 | 300 })}
               />
             </SettingRow>
-            <Note title="基本役職" text="村人、人狼、占い師、怪盗で開始します。" />
           </>
         )}
+        {props.game.id === "drinking-games" && (
+          <RuleDetails
+            title="ルール"
+            summary="道具なしで遊べる飲み会ゲームを検索して、ルールを確認できます。"
+            details={[
+              "ゲームを開始しても勝敗判定や秘密情報はありません。",
+              "国フィルタと検索で、人数や場の空気に合うゲームを探します。",
+              "同じゲームをAIが重複追加しないよう、別名、重複判定キー、参照元をデータに持たせています。"
+            ]}
+          />
+        )}
         <button className="primary" type="button" onClick={props.onStart} disabled={!canStart || props.isStarting}>
-          {props.isStarting ? "準備中..." : "はじめる"}
+          {props.isStarting ? "準備中..." : props.game.id === "drinking-games" ? "一覧を見る" : "はじめる"}
         </button>
         <AdSlot context="gameSetup" />
       </div>
@@ -396,11 +455,17 @@ function SetupScreen(props: {
   );
 }
 
-function NumberTalkGame(props: { state: NumberTalkState; setState: (state: NumberTalkState) => void; players: Player[]; onHome: () => void }) {
+function NumberTalkGame(props: {
+  state: NumberTalkState;
+  setState: (state: NumberTalkState) => void;
+  players: Player[];
+  onHome: () => void;
+  onRestart: () => void | Promise<void>;
+}) {
   const currentPlayer = props.players[props.state.currentPlayerIndex] ?? props.players[0];
 
   if (props.state.phase === "handoff") {
-    return <PassDevice label="数字確認" player={currentPlayer} onConfirm={() => props.setState({ ...props.state, phase: "revealNumber" })} onHome={props.onHome} />;
+    return <PassDevice label="数字確認" player={currentPlayer} onConfirm={() => props.setState({ ...props.state, phase: "revealNumber" })} />;
   }
 
   if (props.state.phase === "revealNumber") {
@@ -438,7 +503,7 @@ function NumberTalkGame(props: { state: NumberTalkState; setState: (state: Numbe
   if (props.state.phase === "discussion") {
     return (
       <section className="screen">
-        <Topbar title="会話" eyebrow="ナンバートーク" onBack={props.onHome} />
+        <Topbar title="会話" eyebrow="ナンバートーク" />
         <div className="content">
           <div className="topic">{props.state.topic.text}</div>
           <div className="hint-row">
@@ -476,44 +541,9 @@ function NumberTalkGame(props: { state: NumberTalkState; setState: (state: Numbe
               </div>
             ))}
           </div>
-          <button className="primary" type="button" onClick={() => props.setState({ ...props.state, phase: "confirmOrder" })}>
-            公開確認へ
+          <button className="primary" type="button" onClick={() => props.setState({ ...props.state, phase: "result" })}>
+            結果を見る
           </button>
-        </div>
-      </section>
-    );
-  }
-
-  if (props.state.phase === "confirmOrder") {
-    const orderPlayers = props.state.order.map((id) => props.players.find((player) => player.id === id)).filter(Boolean) as Player[];
-    return (
-      <section className="screen">
-        <Topbar title="公開確認" eyebrow="ナンバートーク" onBack={() => props.setState({ ...props.state, phase: "ordering" })} />
-        <div className="content">
-          <div className="topic">この順番で数字を公開しますか？</div>
-          <div className="note">
-            <strong>{props.state.topic.text}</strong>
-            <span>
-              {props.state.topic.lowLabel ?? "小さい"} → {props.state.topic.highLabel ?? "大きい"}
-            </span>
-          </div>
-          <div className="result-list">
-            {orderPlayers.map((player, index) => (
-              <div key={player.id} className="result-row">
-                <span className="rank">{index + 1}</span>
-                <strong>{player.nickname}</strong>
-                <span className="muted">未公開</span>
-              </div>
-            ))}
-          </div>
-          <div className="actions">
-            <button className="secondary" type="button" onClick={() => props.setState({ ...props.state, phase: "ordering" })}>
-              修正する
-            </button>
-            <button className="primary" type="button" onClick={() => props.setState({ ...props.state, phase: "result" })}>
-              公開する
-            </button>
-          </div>
         </div>
       </section>
     );
@@ -522,7 +552,7 @@ function NumberTalkGame(props: { state: NumberTalkState; setState: (state: Numbe
   const success = isNumberOrderCorrect(props.state);
   return (
     <section className="screen">
-      <Topbar title="結果" eyebrow="ナンバートーク" onBack={props.onHome} />
+      <Topbar title="結果" eyebrow="ナンバートーク" />
       <div className="content">
         <div className="topic">{success ? "成功" : "失敗"}</div>
         <div className="result-list">
@@ -539,26 +569,30 @@ function NumberTalkGame(props: { state: NumberTalkState; setState: (state: Numbe
           })}
         </div>
         <AdSlot context="result" />
-        <button className="primary" type="button" onClick={props.onHome}>
-          ゲーム一覧へ
-        </button>
+        <FinalResultActions onRestart={props.onRestart} onHome={props.onHome} />
       </div>
     </section>
   );
 }
 
-function GeoGame(props: { state: GeoState; setState: (state: GeoState) => void; players: Player[]; onHome: () => void }) {
+function GeoGame(props: {
+  state: GeoState;
+  setState: (state: GeoState) => void;
+  players: Player[];
+  onHome: () => void;
+  onRestart: () => void | Promise<void>;
+}) {
   const currentPlayer = props.players[props.state.currentPlayerIndex] ?? props.players[0];
   const location = currentGeoLocation(props.state);
 
   if (props.state.phase === "handoff") {
-    return <PassDevice label={`ラウンド ${props.state.currentRoundIndex + 1}`} player={currentPlayer} onConfirm={() => props.setState({ ...props.state, phase: "viewingImage" })} onHome={props.onHome} />;
+    return <PassDevice label="回答者" player={currentPlayer} onConfirm={() => props.setState({ ...props.state, phase: "viewingImage" })} />;
   }
 
   if (props.state.phase === "viewingImage") {
     return (
       <section className="screen">
-        <Topbar title={`ラウンド ${props.state.currentRoundIndex + 1}`} eyebrow="日本マップGuessr" onBack={props.onHome} />
+        <Topbar title="地点画像" eyebrow="日本マップGuessr" onBack={() => props.setState({ ...props.state, phase: "handoff" })} />
         <div className="content">
           <GeoImagePanel location={location} playerName={currentPlayer.nickname} />
           <button className="primary" type="button" onClick={() => props.setState({ ...props.state, phase: "placingPin", pendingGuess: { lat: 36, lng: 138 } })}>
@@ -575,30 +609,9 @@ function GeoGame(props: { state: GeoState; setState: (state: GeoState) => void; 
         <Topbar title="回答する" eyebrow="日本マップGuessr" onBack={() => props.setState({ ...props.state, phase: "viewingImage" })} />
         <div className="content">
           <LeafletAnswerMap value={props.state.pendingGuess ?? { lat: 36, lng: 138 }} onChange={(pendingGuess) => props.setState({ ...props.state, pendingGuess })} />
-          <button className="primary" type="button" onClick={() => props.setState({ ...props.state, phase: "confirmGuess", pendingGuess: props.state.pendingGuess ?? { lat: 36, lng: 138 } })}>
-            回答確認へ
+          <button className="primary" type="button" onClick={() => submitGeoGuess(props.state, props.setState, props.players, currentPlayer.id, props.state.pendingGuess ?? { lat: 36, lng: 138 })}>
+            回答を確定
           </button>
-        </div>
-      </section>
-    );
-  }
-
-  if (props.state.phase === "confirmGuess") {
-    const guess = props.state.pendingGuess ?? { lat: 36, lng: 138 };
-    return (
-      <section className="screen">
-        <Topbar title="回答確認" eyebrow="日本マップGuessr" onBack={() => props.setState({ ...props.state, phase: "placingPin" })} />
-        <div className="content">
-          <div className="topic">この場所で回答しますか？</div>
-          <LeafletPinPreviewMap value={guess} />
-          <div className="actions">
-            <button className="secondary" type="button" onClick={() => props.setState({ ...props.state, phase: "placingPin" })}>
-              修正する
-            </button>
-            <button className="primary" type="button" onClick={() => submitGeoGuess(props.state, props.setState, props.players, currentPlayer.id, guess)}>
-              確定する
-            </button>
-          </div>
         </div>
       </section>
     );
@@ -608,27 +621,13 @@ function GeoGame(props: { state: GeoState; setState: (state: GeoState) => void; 
     const answers = roundAnswers(props.state);
     return (
       <section className="screen">
-        <Topbar title="ラウンド結果" eyebrow="日本マップGuessr" onBack={props.onHome} />
+        <Topbar title="結果" eyebrow="日本マップGuessr" />
         <div className="content">
-          <div className="topic">正解: {location.prefecture ?? "日本"}付近</div>
+          <div className="topic">正解地点とみんなの回答</div>
           <LeafletResultMap location={location} answers={answers} players={props.players} />
           <GeoResultRows answers={answers} players={props.players} />
           <AdSlot context="result" />
-          <button
-            className="primary"
-            type="button"
-            onClick={() => {
-              const isLastRound = props.state.currentRoundIndex >= props.state.config.rounds - 1;
-              props.setState({
-                ...props.state,
-                phase: isLastRound ? "gameResult" : "handoff",
-                currentRoundIndex: isLastRound ? props.state.currentRoundIndex : props.state.currentRoundIndex + 1,
-                currentPlayerIndex: 0
-              });
-            }}
-          >
-            {props.state.currentRoundIndex >= props.state.config.rounds - 1 ? "最終結果へ" : "次のラウンドへ"}
-          </button>
+          <FinalResultActions onRestart={props.onRestart} onHome={props.onHome} />
         </div>
       </section>
     );
@@ -636,7 +635,7 @@ function GeoGame(props: { state: GeoState; setState: (state: GeoState) => void; 
 
   return (
     <section className="screen">
-      <Topbar title="最終結果" eyebrow="日本マップGuessr" onBack={props.onHome} />
+      <Topbar title="結果" eyebrow="日本マップGuessr" />
       <div className="content">
         <div className="result-list">
           {[...props.players]
@@ -650,19 +649,96 @@ function GeoGame(props: { state: GeoState; setState: (state: GeoState) => void; 
             ))}
         </div>
         <AdSlot context="result" />
-        <button className="primary" type="button" onClick={props.onHome}>
-          ゲーム一覧へ
-        </button>
+        <FinalResultActions onRestart={props.onRestart} onHome={props.onHome} />
       </div>
     </section>
   );
 }
 
-function WerewolfGame(props: { state: WerewolfState; setState: (state: WerewolfState) => void; players: Player[]; onHome: () => void }) {
+function DrinkingGamesBrowser(props: {
+  state: DrinkingGamesState;
+  setState: (state: DrinkingGamesState) => void;
+  onHome: () => void;
+}) {
+  const countries = drinkingGameCountries();
+  const gamesToShow = filterDrinkingGames(props.state);
+
+  return (
+    <section className="screen">
+      <Topbar title="飲み会ゲーム辞典" eyebrow="Database" onBack={props.onHome} />
+      <div className="content">
+        <div className="search-panel">
+          <label className="field-label" htmlFor="drinking-game-search">
+            検索
+          </label>
+          <input
+            id="drinking-game-search"
+            className="search-input"
+            value={props.state.query}
+            placeholder="ゲーム名、別名、ルールで検索"
+            onChange={(event) => props.setState({ ...props.state, query: event.target.value })}
+          />
+          <div className="filter-row" role="group" aria-label="国で絞り込み">
+            <button type="button" className={props.state.country === "all" ? "active" : ""} onClick={() => props.setState({ ...props.state, country: "all" })}>
+              すべて
+            </button>
+            {countries.map((country) => (
+              <button key={country} type="button" className={props.state.country === country ? "active" : ""} onClick={() => props.setState({ ...props.state, country })}>
+                {country}
+              </button>
+            ))}
+          </div>
+          <div className="muted">{gamesToShow.length}件</div>
+        </div>
+
+        {gamesToShow.length === 0 ? (
+          <div className="notice">条件に合うゲームがありません。</div>
+        ) : (
+          <div className="drink-game-list">
+            {gamesToShow.map((game) => (
+              <article key={game.id} className="drink-game-card">
+                <div className="drink-game-head">
+                  <div>
+                    <h2>{game.title}</h2>
+                    <p>{game.summary}</p>
+                  </div>
+                  {game.country && <span className="pill">{game.country}</span>}
+                </div>
+                <div className="drink-game-meta">
+                  <span>{game.maxPlayers ? `${game.minPlayers}-${game.maxPlayers}人` : `${game.minPlayers}人以上`}</span>
+                  <span>約{game.durationMin}分</span>
+                  <span>道具なし</span>
+                </div>
+                <details className="drink-game-details">
+                  <summary>ルールを見る</summary>
+                  <ol>
+                    {game.rules.map((rule) => (
+                      <li key={rule}>{rule}</li>
+                    ))}
+                  </ol>
+                  {game.aliases.length > 0 && <p className="alias-line">別名: {game.aliases.join(" / ")}</p>}
+                </details>
+              </article>
+            ))}
+          </div>
+        )}
+        <AdSlot context="result" />
+      </div>
+    </section>
+  );
+}
+
+function WerewolfGame(props: {
+  state: WerewolfState;
+  setState: (state: WerewolfState) => void;
+  players: Player[];
+  onHome: () => void;
+  onRestart: () => void | Promise<void>;
+}) {
   const currentPlayer = props.players[props.state.currentPlayerIndex] ?? props.players[0];
 
   if (props.state.phase === "roleHandoff") {
-    return <PassDevice label="役職確認" player={currentPlayer} onConfirm={() => props.setState({ ...props.state, phase: "roleReveal" })} onHome={props.onHome} />;
+    return <PassDevice label="役職確認" player={currentPlayer} onConfirm={() => props.setState({ ...props.state, phase: "roleReveal" })} />;
   }
 
   if (props.state.phase === "roleReveal") {
@@ -672,9 +748,14 @@ function WerewolfGame(props: { state: WerewolfState; setState: (state: WerewolfS
         <Topbar title="役職確認" eyebrow="ワンナイト人狼" onBack={() => props.setState({ ...props.state, phase: "roleHandoff" })} />
         <div className="content">
           <div className="role-card">
-            <div className="role-symbol">{role.name.slice(0, 1)}</div>
+            <RoleSymbol roleId={role.roleId} />
             <h2>{role.name}</h2>
             <p>{role.description}</p>
+            <div className="note role-note">
+              <strong>できること</strong>
+              <span>{role.actionSummary}</span>
+              <span>{role.detail}</span>
+            </div>
           </div>
           <button
             className="primary"
@@ -688,7 +769,7 @@ function WerewolfGame(props: { state: WerewolfState; setState: (state: WerewolfS
                 currentPlayerIndex: isLast ? 0 : props.state.currentPlayerIndex + 1,
                 phase: "roleHandoff"
               };
-              props.setState({ ...nextState, phase: isLast ? nextWerewolfNightPhase(nextState, props.players, "roles") : "roleHandoff" });
+              props.setState({ ...nextState, phase: isLast ? "nightHandoff" : "roleHandoff" });
             }}
           >
             隠して渡す
@@ -698,118 +779,44 @@ function WerewolfGame(props: { state: WerewolfState; setState: (state: WerewolfS
     );
   }
 
-  if (props.state.phase === "nightSeerHandoff") {
-    const seer = playerWithRole(props.state, props.players, "seer");
-    if (!seer) {
-      return <NightScreen title="占い師" text="占い師は場にいません。" onNext={() => props.setState({ ...props.state, phase: nextWerewolfNightPhase(props.state, props.players, "seer") })} />;
-    }
-    return <NightPassScreen title="占い師" name={seer.nickname} color={seer.color} onConfirm={() => props.setState({ ...props.state, phase: "nightSeer" })} onHome={props.onHome} />;
+  if (props.state.phase === "nightHandoff") {
+    return <PassDevice label="夜の行動" player={currentPlayer} onConfirm={() => props.setState({ ...props.state, phase: "nightAction" })} />;
   }
 
-  if (props.state.phase === "nightSeer") {
-    const seer = playerWithRole(props.state, props.players, "seer");
-    const action = getNightAction(props.state, "seer");
-    if (!seer) {
-      return <NightScreen title="占い師" text="占い師は場にいません。" onNext={() => props.setState({ ...props.state, phase: nextWerewolfNightPhase(props.state, props.players, "seer") })} />;
-    }
-    if (action) {
-      const target = action.mode === "player" ? props.players.find((player) => player.id === action.targetPlayerId) : null;
-      const result =
-        action.mode === "center"
-          ? `中央: ${(action.seenCenterCards ?? props.state.centerCards).map((roleId) => roleDefinitions[roleId].name).join(" / ")}`
-          : `${target?.nickname ?? "選択したプレイヤー"}: ${roleDefinitions[action.seenRole ?? "villager"].name}`;
+  if (props.state.phase === "nightAction") {
+    const roleId = props.state.playerInitialCards[currentPlayer.id];
+    const role = roleDefinitions[roleId];
+    const advanceNight = () => advanceWerewolfNightPlayer(props.state, props.setState, props.players);
+
+    if (roleId === "seer") {
+      const action = props.state.nightActions.find((item): item is Extract<WerewolfNightAction, { type: "seer" }> => item.type === "seer" && item.actorId === currentPlayer.id);
+      if (action) {
+        const target = action.mode === "player" ? props.players.find((player) => player.id === action.targetPlayerId) : null;
+        const result =
+          action.mode === "center"
+            ? `中央: ${(action.seenCenterCards ?? props.state.centerCards).map((seenRoleId) => roleDefinitions[seenRoleId].name).join(" / ")}`
+            : `${target?.nickname ?? "選択したプレイヤー"}: ${roleDefinitions[action.seenRole ?? "villager"].name}`;
+        return <NightScreen roleId={roleId} title="夜の行動" text={`${currentPlayer.nickname}だけ確認してください。`} result={result} onNext={advanceNight} />;
+      }
       return (
-        <NightScreen
-          title="占い師の結果"
-          text={`${seer.nickname}だけ確認してください。`}
-          result={result}
-          onNext={() => props.setState({ ...props.state, phase: nextWerewolfNightPhase(props.state, props.players, "seer") })}
-        />
-      );
-    }
-    return (
-      <section className="screen">
-        <Topbar title="占い師" eyebrow="ワンナイト人狼" />
-        <div className="content">
-          <div className="topic">{seer.nickname}の夜行動</div>
-          <div className="vote-grid">
-            <button
-              className="vote-button"
-              type="button"
-              onClick={() => {
-                const next = structuredClone(props.state);
-                applySeerAction(next, seer.id, { mode: "center" });
-                props.setState(next);
-              }}
-            >
-              中央2枚を見る
-            </button>
-            {props.players
-              .filter((player) => player.id !== seer.id)
-              .map((player) => (
-                <button
-                  key={player.id}
-                  className="vote-button"
-                  type="button"
-                  onClick={() => {
-                    const next = structuredClone(props.state);
-                    applySeerAction(next, seer.id, { mode: "player", targetPlayerId: player.id });
-                    props.setState(next);
-                  }}
-                >
-                  {player.nickname}を見る
-                </button>
-              ))}
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  if (props.state.phase === "nightWerewolfHandoff") {
-    const wolves = playersWithRole(props.state, props.players, "werewolf");
-    if (wolves.length === 0) {
-      return <NightScreen title="人狼" text="人狼は場にいません。" onNext={() => props.setState({ ...props.state, phase: nextWerewolfNightPhase(props.state, props.players, "werewolf") })} />;
-    }
-    return <NightPassScreen title="人狼" name="人狼の人" color="#d64545" onConfirm={() => props.setState({ ...props.state, phase: "nightWerewolf" })} onHome={props.onHome} />;
-  }
-
-  if (props.state.phase === "nightWerewolf") {
-    const wolves = playersWithRole(props.state, props.players, "werewolf");
-    const result = wolves.length > 1 ? `人狼: ${wolves.map((wolf) => wolf.nickname).join(" / ")}` : `${wolves[0]?.nickname ?? "人狼"}は単独です。`;
-    return (
-      <NightScreen
-        title="人狼"
-        text="人狼の人だけ確認してください。"
-        result={result}
-        onNext={() => {
-          const next = structuredClone(props.state);
-          recordWerewolfAction(next, props.players);
-          props.setState({ ...next, phase: nextWerewolfNightPhase(next, props.players, "werewolf") });
-        }}
-      />
-    );
-  }
-
-  if (props.state.phase === "nightRobberHandoff") {
-    const robber = playerWithRole(props.state, props.players, "robber");
-    if (!robber) {
-      return <NightScreen title="怪盗" text="怪盗は場にいません。" onNext={() => props.setState({ ...props.state, phase: "discussion" })} />;
-    }
-    return <NightPassScreen title="怪盗" name={robber.nickname} color={robber.color} onConfirm={() => props.setState({ ...props.state, phase: "nightRobber" })} onHome={props.onHome} />;
-  }
-
-  if (props.state.phase === "nightRobber") {
-    const robber = playerWithRole(props.state, props.players, "robber");
-    return (
-      <section className="screen">
-        <Topbar title="怪盗" eyebrow="ワンナイト人狼" />
-        <div className="content">
-          <div className="topic">{robber ? `${robber.nickname}の夜行動` : "怪盗は場にいません。"}</div>
-          {robber ? (
+        <section className="screen">
+          <Topbar title="夜の行動" eyebrow="ワンナイト人狼" />
+          <div className="content">
+            <RoleActionIntro player={currentPlayer} roleId={roleId} />
             <div className="vote-grid">
+              <button
+                className="vote-button"
+                type="button"
+                onClick={() => {
+                  const next = structuredClone(props.state);
+                  applySeerAction(next, currentPlayer.id, { mode: "center" });
+                  props.setState(next);
+                }}
+              >
+                中央2枚を見る
+              </button>
               {props.players
-                .filter((player) => player.id !== robber.id)
+                .filter((player) => player.id !== currentPlayer.id)
                 .map((player) => (
                   <button
                     key={player.id}
@@ -817,8 +824,62 @@ function WerewolfGame(props: { state: WerewolfState; setState: (state: WerewolfS
                     type="button"
                     onClick={() => {
                       const next = structuredClone(props.state);
-                      applyRobberAction(next, robber.id, player.id);
-                      props.setState({ ...next, phase: "nightRobberResult" });
+                      applySeerAction(next, currentPlayer.id, { mode: "player", targetPlayerId: player.id });
+                      props.setState(next);
+                    }}
+                  >
+                    {player.nickname}を見る
+                  </button>
+                ))}
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    if (roleId === "werewolf") {
+      const wolves = props.players.filter((player) => props.state.playerInitialCards[player.id] === "werewolf");
+      const otherWolves = wolves.filter((wolf) => wolf.id !== currentPlayer.id);
+      const result = otherWolves.length ? `仲間: ${otherWolves.map((wolf) => wolf.nickname).join(" / ")}` : "あなたは単独の人狼です。";
+      return (
+        <NightScreen
+          roleId={roleId}
+          title="夜の行動"
+          text={`${currentPlayer.nickname}だけ確認してください。`}
+          result={result}
+          onNext={() => {
+            const next = structuredClone(props.state);
+            recordWerewolfAction(next, props.players);
+            advanceWerewolfNightPlayer(next, props.setState, props.players);
+          }}
+        />
+      );
+    }
+
+    if (roleId === "robber") {
+      const action = props.state.nightActions.find((item): item is Extract<WerewolfNightAction, { type: "robber" }> => item.type === "robber" && item.actorId === currentPlayer.id);
+      if (action) {
+        const target = props.players.find((player) => player.id === action.targetPlayerId);
+        const result = action.skipped ? `今の役職: ${roleDefinitions[action.newRole ?? "robber"].name}` : `${target?.nickname ?? "選択したプレイヤー"}と交換 / 今の役職: ${roleDefinitions[action.newRole ?? "villager"].name}`;
+        return <NightScreen roleId={roleId} title="夜の行動" text={`${currentPlayer.nickname}だけ確認してください。`} result={result} onNext={advanceNight} />;
+      }
+      return (
+        <section className="screen">
+          <Topbar title="夜の行動" eyebrow="ワンナイト人狼" />
+          <div className="content">
+            <RoleActionIntro player={currentPlayer} roleId={roleId} />
+            <div className="vote-grid">
+              {props.players
+                .filter((player) => player.id !== currentPlayer.id)
+                .map((player) => (
+                  <button
+                    key={player.id}
+                    className="vote-button"
+                    type="button"
+                    onClick={() => {
+                      const next = structuredClone(props.state);
+                      applyRobberAction(next, currentPlayer.id, player.id);
+                      props.setState(next);
                     }}
                   >
                     {player.nickname}と交換
@@ -829,35 +890,25 @@ function WerewolfGame(props: { state: WerewolfState; setState: (state: WerewolfS
                 type="button"
                 onClick={() => {
                   const next = structuredClone(props.state);
-                  applyRobberAction(next, robber.id);
-                  props.setState({ ...next, phase: "nightRobberResult" });
+                  applyRobberAction(next, currentPlayer.id);
+                  props.setState(next);
                 }}
               >
                 交換しない
               </button>
             </div>
-          ) : (
-            <button className="primary" type="button" onClick={() => props.setState({ ...props.state, phase: "discussion" })}>
-              議論へ
-            </button>
-          )}
-        </div>
-      </section>
-    );
-  }
+          </div>
+        </section>
+      );
+    }
 
-  if (props.state.phase === "nightRobberResult") {
-    const action = getNightAction(props.state, "robber");
-    const robber = props.players.find((player) => player.id === action?.actorId);
-    const target = props.players.find((player) => player.id === action?.targetPlayerId);
-    const result = action?.skipped ? `今の役職: ${roleDefinitions[action.newRole ?? "robber"].name}` : `${target?.nickname ?? "選択したプレイヤー"}と交換 / 今の役職: ${roleDefinitions[action?.newRole ?? "villager"].name}`;
-    return <NightScreen title="怪盗の結果" text={`${robber?.nickname ?? "怪盗"}だけ確認してください。`} result={result} onNext={() => props.setState({ ...props.state, phase: "discussion" })} />;
+    return <NightScreen roleId={roleId} title="夜の行動" text={`${currentPlayer.nickname}の夜です。`} result={`${role.name}: ${role.actionSummary}`} onNext={advanceNight} />;
   }
 
   if (props.state.phase === "discussion") {
     return (
       <section className="screen">
-        <Topbar title="議論" eyebrow="ワンナイト人狼" onBack={props.onHome} />
+        <Topbar title="議論" eyebrow="ワンナイト人狼" />
         <div className="content">
           <CountdownTimer seconds={props.state.config.discussionTimeSec} />
           <PlayerStrip players={props.players} />
@@ -870,7 +921,7 @@ function WerewolfGame(props: { state: WerewolfState; setState: (state: WerewolfS
   }
 
   if (props.state.phase === "voteHandoff") {
-    return <PassDevice label="投票" player={currentPlayer} onConfirm={() => props.setState({ ...props.state, phase: "vote" })} onHome={props.onHome} />;
+    return <PassDevice label="投票" player={currentPlayer} onConfirm={() => props.setState({ ...props.state, phase: "vote" })} />;
   }
 
   if (props.state.phase === "vote") {
@@ -898,7 +949,7 @@ function WerewolfGame(props: { state: WerewolfState; setState: (state: WerewolfS
   const executedNames = result.executedPlayerIds.map((playerId) => props.players.find((player) => player.id === playerId)?.nickname).filter(Boolean).join(" / ");
   return (
     <section className="screen">
-      <Topbar title="結果" eyebrow="ワンナイト人狼" onBack={props.onHome} />
+      <Topbar title="結果" eyebrow="ワンナイト人狼" />
       <div className="content">
         <div className="topic">{result.winningTeam === "human" ? "人間チームの勝利" : result.winningTeam === "werewolf" ? "人狼チームの勝利" : "全員勝利"}</div>
         <p className="muted">{result.reason}</p>
@@ -921,9 +972,7 @@ function WerewolfGame(props: { state: WerewolfState; setState: (state: WerewolfS
         </div>
         <div className="topic">中央: {props.state.centerCards.map((roleId) => roleDefinitions[roleId].name).join(" / ")}</div>
         <AdSlot context="result" />
-        <button className="primary" type="button" onClick={props.onHome}>
-          ゲーム一覧へ
-        </button>
+        <FinalResultActions onRestart={props.onRestart} onHome={props.onHome} />
       </div>
     </section>
   );
@@ -937,6 +986,15 @@ function submitWerewolfVote(state: WerewolfState, setState: (state: WerewolfStat
     votes,
     currentPlayerIndex: isLast ? state.currentPlayerIndex : state.currentPlayerIndex + 1,
     phase: isLast ? "result" : "voteHandoff"
+  });
+}
+
+function advanceWerewolfNightPlayer(state: WerewolfState, setState: (state: WerewolfState) => void, players: Player[]) {
+  const isLast = state.currentPlayerIndex >= players.length - 1;
+  setState({
+    ...state,
+    currentPlayerIndex: isLast ? 0 : state.currentPlayerIndex + 1,
+    phase: isLast ? "discussion" : "nightHandoff"
   });
 }
 
@@ -1002,28 +1060,6 @@ function LeafletAnswerMap(props: { value: { lat: number; lng: number }; onChange
   return <div className="leaflet-panel" ref={mapRef} />;
 }
 
-function LeafletPinPreviewMap(props: { value: { lat: number; lng: number } }) {
-  const mapRef = useRef<HTMLDivElement | null>(null);
-  const leafletRef = useRef<L.Map | null>(null);
-
-  useEffect(() => {
-    if (!mapRef.current || leafletRef.current) return;
-    const map = L.map(mapRef.current, { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false }).setView([props.value.lat, props.value.lng], 6);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap contributors"
-    }).addTo(map);
-    L.marker([props.value.lat, props.value.lng], { icon: createLeafletPinIcon("#171717") }).addTo(map);
-    leafletRef.current = map;
-    setTimeout(() => map.invalidateSize(), 0);
-    return () => {
-      map.remove();
-      leafletRef.current = null;
-    };
-  }, []);
-
-  return <div className="leaflet-panel compact" ref={mapRef} />;
-}
-
 function LeafletResultMap(props: { location: GeoState["roundLocations"][number]; answers: GeoAnswer[]; players: Player[] }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const leafletRef = useRef<L.Map | null>(null);
@@ -1036,11 +1072,19 @@ function LeafletResultMap(props: { location: GeoState["roundLocations"][number];
     }).addTo(map);
 
     const points: L.LatLngExpression[] = [[props.location.lat, props.location.lng]];
-    L.marker([props.location.lat, props.location.lng], { icon: createLeafletPinIcon("#0f8b8d", true) }).addTo(map);
+    const correctLatLng: L.LatLngExpression = [props.location.lat, props.location.lng];
+    L.marker(correctLatLng, { icon: createLeafletPinIcon("#0f8b8d", true) }).addTo(map).bindTooltip("正解地点", { permanent: true, direction: "top", offset: [0, -30] });
     props.answers.forEach((answer) => {
       const player = props.players.find((item) => item.id === answer.playerId);
-      points.push([answer.guessLat, answer.guessLng]);
-      L.marker([answer.guessLat, answer.guessLng], { icon: createLeafletPinIcon(player?.color ?? "#171717") }).addTo(map);
+      const guessLatLng: L.LatLngExpression = [answer.guessLat, answer.guessLng];
+      points.push(guessLatLng);
+      L.polyline([correctLatLng, guessLatLng], {
+        color: player?.color ?? "#171717",
+        weight: 3,
+        opacity: 0.72,
+        dashArray: "6 6"
+      }).addTo(map);
+      L.marker(guessLatLng, { icon: createLeafletPinIcon(player?.color ?? "#171717") }).addTo(map).bindTooltip(player?.nickname ?? "回答", { direction: "bottom", offset: [0, 10] });
     });
     map.fitBounds(L.latLngBounds(points), { padding: [28, 28], maxZoom: 8 });
     leafletRef.current = map;
@@ -1106,10 +1150,9 @@ function GeoImagePanel(props: { location: GeoState["roundLocations"][number]; pl
 
   return (
     <div className={`street-view ${isReady ? "has-image" : ""}`}>
-      {image && <img className="street-image" src={image.imageUrl} alt="Mapillary street-level imagery" />}
+      {image && <PannableStreetImage src={image.imageUrl} />}
       <div className="street-hud">
         <span>{props.playerName}</span>
-        <span>{props.location.prefecture ?? props.location.region ?? "日本"}</span>
       </div>
       <div className="street-copy">
         <strong>{copy.title}</strong>
@@ -1131,6 +1174,39 @@ function GeoImagePanel(props: { location: GeoState["roundLocations"][number]; pl
   );
 }
 
+function PannableStreetImage(props: { src: string }) {
+  const [offset, setOffset] = useState(0);
+  const dragRef = useRef<{ startX: number; startOffset: number } | null>(null);
+
+  function clampOffset(value: number) {
+    return Math.max(-22, Math.min(22, value));
+  }
+
+  return (
+    <div
+      className="street-image-pan"
+      onPointerDown={(event) => {
+        dragRef.current = { startX: event.clientX, startOffset: offset };
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        if (!dragRef.current) return;
+        const delta = ((event.clientX - dragRef.current.startX) / Math.max(1, event.currentTarget.clientWidth)) * 100;
+        setOffset(clampOffset(dragRef.current.startOffset + delta));
+      }}
+      onPointerUp={() => {
+        dragRef.current = null;
+      }}
+      onPointerCancel={() => {
+        dragRef.current = null;
+      }}
+    >
+      <img className="street-image" src={props.src} alt="Mapillary street-level imagery" style={{ transform: `translateX(${offset}%)` }} draggable={false} />
+      <span className="pan-hint">ドラッグで左右を見る</span>
+    </div>
+  );
+}
+
 function getStreetImageCopy(result: StreetImageLoadResult | { status: "loading" }, location: GeoState["roundLocations"][number]) {
   const place = `${location.prefecture ?? location.region ?? "日本"} / ${location.tags.join(", ")}`;
   if (result.status === "loading") {
@@ -1147,7 +1223,7 @@ function formatDistance(meters: number) {
   return `${(meters / 1000).toFixed(1)}km`;
 }
 
-function PassDevice(props: { label: string; player: Player; onConfirm: () => void; onHome: () => void }) {
+function PassDevice(props: { label: string; player: Player; onConfirm: () => void }) {
   return (
     <section className="pass-screen">
       <div className="pass-card" style={{ "--player-color": props.player.color } as React.CSSProperties}>
@@ -1156,37 +1232,18 @@ function PassDevice(props: { label: string; player: Player; onConfirm: () => voi
         <button className="primary" type="button" onClick={props.onConfirm}>
           画面を見る
         </button>
-        <button className="ghost" type="button" onClick={props.onHome}>
-          ゲーム一覧
-        </button>
       </div>
     </section>
   );
 }
 
-function NightPassScreen(props: { title: string; name: string; color: string; onConfirm: () => void; onHome: () => void }) {
-  return (
-    <section className="pass-screen">
-      <div className="pass-card" style={{ "--player-color": props.color } as React.CSSProperties}>
-        <span className="pass-sub">夜行動: {props.title}</span>
-        <strong className="pass-name">{props.name}</strong>
-        <button className="primary" type="button" onClick={props.onConfirm}>
-          画面を見る
-        </button>
-        <button className="ghost" type="button" onClick={props.onHome}>
-          ゲーム一覧
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function NightScreen(props: { title: string; text: string; result?: string; onNext: () => void }) {
+function NightScreen(props: { roleId?: RoleId; title: string; text: string; result?: string; onNext: () => void }) {
   return (
     <section className="screen">
       <Topbar title={props.title} eyebrow="ワンナイト人狼" />
       <div className="content">
         <div className="role-card">
+          {props.roleId && <RoleSymbol roleId={props.roleId} />}
           <h2>{props.title}</h2>
           <p>{props.text}</p>
           {props.result && <div className="topic">{props.result}</div>}
@@ -1196,6 +1253,41 @@ function NightScreen(props: { title: string; text: string; result?: string; onNe
         </button>
       </div>
     </section>
+  );
+}
+
+function FinalResultActions(props: { onRestart: () => void | Promise<void>; onHome: () => void }) {
+  return (
+    <div className="actions">
+      <button className="primary" type="button" onClick={() => void props.onRestart()}>
+        もう一度
+      </button>
+      <button className="secondary" type="button" onClick={props.onHome}>
+        ゲーム一覧へ
+      </button>
+    </div>
+  );
+}
+
+function RoleSymbol(props: { roleId: RoleId }) {
+  const role = roleDefinitions[props.roleId];
+  return (
+    <div className={`role-symbol role-symbol-${props.roleId}`} aria-hidden="true">
+      {role.icon}
+    </div>
+  );
+}
+
+function RoleActionIntro(props: { player: Player; roleId: RoleId }) {
+  const role = roleDefinitions[props.roleId];
+  return (
+    <div className="role-card compact-role-card">
+      <RoleSymbol roleId={props.roleId} />
+      <h2>{props.player.nickname}</h2>
+      <p>
+        {role.name}: {role.actionSummary}
+      </p>
+    </div>
   );
 }
 
@@ -1209,6 +1301,68 @@ function PlayerStrip(props: { players: Player[] }) {
         </span>
       ))}
     </div>
+  );
+}
+
+function RuleDetails(props: { title: string; summary: string; details: string[] }) {
+  return (
+    <section className="rule-card">
+      <h2>{props.title}</h2>
+      <p>{props.summary}</p>
+      <details>
+        <summary>詳しいルール</summary>
+        <ul>
+          {props.details.map((detail) => (
+            <li key={detail}>{detail}</li>
+          ))}
+        </ul>
+      </details>
+    </section>
+  );
+}
+
+function RoleCountEditor(props: { counts: RoleCounts; targetCards: number; onChange: (counts: RoleCounts) => void }) {
+  const total = countRoleCards(props.counts);
+  function changeRoleCount(roleId: RoleId, delta: -1 | 1) {
+    const next = { ...props.counts, [roleId]: Math.max(0, props.counts[roleId] + delta) };
+    props.onChange(next);
+  }
+
+  return (
+    <section className="role-count-card">
+      <div className="role-count-head">
+        <div>
+          <strong>役職カード</strong>
+          <span>
+            {total}/{props.targetCards}枚
+          </span>
+        </div>
+        <span className={total === props.targetCards ? "count-ok" : "count-warn"}>{total === props.targetCards ? "OK" : "調整中"}</span>
+      </div>
+      <div className="role-count-list">
+        {WEREWOLF_ROLE_IDS.map((roleId) => {
+          const role = roleDefinitions[roleId];
+          return (
+            <div key={roleId} className="role-count-row">
+              <RoleSymbol roleId={roleId} />
+              <div>
+                <strong>{role.name}</strong>
+                <span>{role.actionSummary}</span>
+              </div>
+              <div className="stepper">
+                <button type="button" onClick={() => changeRoleCount(roleId, -1)} disabled={props.counts[roleId] <= 0}>
+                  −
+                </button>
+                <strong>{props.counts[roleId]}</strong>
+                <button type="button" onClick={() => changeRoleCount(roleId, 1)} disabled={total >= props.targetCards}>
+                  +
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -1257,6 +1411,7 @@ function restorePersistedAppState(): RestoredAppState | null {
   let geoState: GeoState | null = null;
   let numberState: NumberTalkState | null = null;
   let werewolfState: WerewolfState | null = null;
+  let drinkingGamesState: DrinkingGamesState | null = null;
 
   if (persisted.activeSession?.gameId === "geo") {
     geoState = sanitizeLoadedGeoState(loadGameSession<GeoState>(persisted.activeSession.sessionId, "geo")?.state ?? null);
@@ -1267,8 +1422,11 @@ function restorePersistedAppState(): RestoredAppState | null {
   if (persisted.activeSession?.gameId === "werewolf") {
     werewolfState = sanitizeLoadedWerewolfState(loadGameSession<WerewolfState>(persisted.activeSession.sessionId, "werewolf")?.state ?? null);
   }
+  if (persisted.activeSession?.gameId === "drinking-games") {
+    drinkingGamesState = sanitizeLoadedDrinkingGamesState(loadGameSession<DrinkingGamesState>(persisted.activeSession.sessionId, "drinking-games")?.state ?? null);
+  }
 
-  const hasActiveState = Boolean(geoState ?? numberState ?? werewolfState);
+  const hasActiveState = Boolean(geoState ?? numberState ?? werewolfState ?? drinkingGamesState);
   if (persisted.screen === "game" && !hasActiveState) {
     persisted.screen = "home";
     persisted.selectedGame = null;
@@ -1279,17 +1437,19 @@ function restorePersistedAppState(): RestoredAppState | null {
     ...persisted,
     geoState,
     numberState,
-    werewolfState
+    werewolfState,
+    drinkingGamesState
   };
 }
 
 function getActiveGameState(
   gameId: GameId,
-  states: { geoState: GeoState | null; numberState: NumberTalkState | null; werewolfState: WerewolfState | null }
+  states: { geoState: GeoState | null; numberState: NumberTalkState | null; werewolfState: WerewolfState | null; drinkingGamesState: DrinkingGamesState | null }
 ) {
   if (gameId === "geo") return states.geoState;
   if (gameId === "number-talk") return states.numberState;
-  return states.werewolfState;
+  if (gameId === "werewolf") return states.werewolfState;
+  return states.drinkingGamesState;
 }
 
 function sanitizePersistedAppState(state: PersistedAppState | null): PersistedAppState | null {
@@ -1315,6 +1475,9 @@ function sanitizeLoadedNumberTalkState(state: NumberTalkState | null): NumberTal
   if (next.phase === "revealNumber") {
     next.phase = "handoff";
   }
+  if (next.phase === "confirmOrder") {
+    next.phase = "ordering";
+  }
   return next;
 }
 
@@ -1327,16 +1490,9 @@ function sanitizeLoadedWerewolfState(state: WerewolfState | null): WerewolfState
   if (next.phase === "vote") {
     next.phase = "voteHandoff";
   }
-  if (
-    next.phase === "nightSeerHandoff" ||
-    next.phase === "nightSeer" ||
-    next.phase === "nightWerewolfHandoff" ||
-    next.phase === "nightWerewolf" ||
-    next.phase === "nightRobberHandoff" ||
-    next.phase === "nightRobber" ||
-    next.phase === "nightRobberResult"
-  ) {
-    next.phase = "discussion";
+  const phase = next.phase as string;
+  if (phase.startsWith("night")) {
+    next.phase = "nightHandoff";
   }
   return next;
 }
@@ -1348,5 +1504,14 @@ function sanitizeLoadedGeoState(state: GeoState | null): GeoState | null {
     next.phase = "viewingImage";
     next.pendingGuess = undefined;
   }
+  return next;
+}
+
+function sanitizeLoadedDrinkingGamesState(state: DrinkingGamesState | null): DrinkingGamesState | null {
+  if (!state) return null;
+  const next = structuredClone(state);
+  next.phase = "browse";
+  next.country = next.country ?? "all";
+  next.query = next.query ?? "";
   return next;
 }

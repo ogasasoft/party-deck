@@ -4,7 +4,7 @@ import { sample } from "../core/random";
 import { fallbackGeoLocations } from "../data/geoLocations";
 
 export type GeoConfig = {
-  rounds: 3 | 5;
+  rounds: 1;
   timeLimitSec: 0 | 30 | 60 | 90;
   movementMode: "no-move";
 };
@@ -61,7 +61,7 @@ export type GeoState = {
 
 export function defaultGeoConfig(): GeoConfig {
   return {
-    rounds: 3,
+    rounds: 1,
     timeLimitSec: 60,
     movementMode: "no-move"
   };

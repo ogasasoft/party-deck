@@ -44,3 +44,15 @@
 - Android Chrome実機で縦画面確認する。
 - 実際の友人プレイで、説明なしでも受け渡しが迷わないか確認する。
 - 広告SDK接続後に、秘密情報画面へ広告が出ないことを再確認する。
+
+## Vercel本番確認
+
+実施日: 2026-05-18
+
+- `https://party-deck.vercel.app` でトップ画面が表示された。
+- ブラウザのコンソールエラーは0件だった。
+- 日本マップGuessrを開始できた。
+- Vercel環境変数 `VITE_MAPILLARY_ACCESS_TOKEN` により、本番環境でMapillary実画像が表示された。
+- Mapillary attributionリンクが表示された。
+
+判定: OK

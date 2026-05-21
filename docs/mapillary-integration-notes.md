@@ -52,6 +52,8 @@
 - `lat/lng + radius` 形式では200で画像候補を取得できた。
 - `radius` は50以下が必要だった。
 - ブラウザで実Mapillary画像とattributionリンクの表示を確認した。
+- Vercel本番環境 `https://party-deck.vercel.app` でもMapillary画像表示を確認した。
+- Vercel側には `VITE_MAPILLARY_ACCESS_TOKEN` を環境変数として登録済み。値はリポジトリに含めない。
 
 ## 品質処理
 
