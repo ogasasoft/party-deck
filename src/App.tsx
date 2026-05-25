@@ -30,6 +30,7 @@ import {
 import {
   defaultDrinkingGamesConfig,
   drinkingGameCountries,
+  drinkingGameSpecialCategories,
   filterDrinkingGames,
   type DrinkingGamesConfig,
   type DrinkingGamesState
@@ -661,6 +662,7 @@ function DrinkingGamesBrowser(props: {
   onHome: () => void;
 }) {
   const countries = drinkingGameCountries();
+  const specialCategories = drinkingGameSpecialCategories();
   const gamesToShow = filterDrinkingGames(props.state);
 
   return (
@@ -678,13 +680,18 @@ function DrinkingGamesBrowser(props: {
             placeholder="ゲーム名、別名、ルールで検索"
             onChange={(event) => props.setState({ ...props.state, query: event.target.value })}
           />
-          <div className="filter-row" role="group" aria-label="国で絞り込み">
+          <div className="filter-row" role="group" aria-label="カテゴリで絞り込み">
             <button type="button" className={props.state.country === "all" ? "active" : ""} onClick={() => props.setState({ ...props.state, country: "all" })}>
               すべて
             </button>
             {countries.map((country) => (
               <button key={country} type="button" className={props.state.country === country ? "active" : ""} onClick={() => props.setState({ ...props.state, country })}>
                 {country}
+              </button>
+            ))}
+            {specialCategories.map((category) => (
+              <button key={category} type="button" className={props.state.country === category ? "active special-filter" : "special-filter"} onClick={() => props.setState({ ...props.state, country: category })}>
+                {category}
               </button>
             ))}
           </div>
@@ -702,7 +709,10 @@ function DrinkingGamesBrowser(props: {
                     <h2>{game.title}</h2>
                     <p>{game.summary}</p>
                   </div>
-                  {game.country && <span className="pill">{game.country}</span>}
+                  <div className="card-pills">
+                    {game.country && <span className="pill">{game.country}</span>}
+                    {game.specialCategory && <span className="pill special-pill">{game.specialCategory}</span>}
+                  </div>
                 </div>
                 <div className="drink-game-meta">
                   <span>{game.maxPlayers ? `${game.minPlayers}-${game.maxPlayers}人` : `${game.minPlayers}人以上`}</span>

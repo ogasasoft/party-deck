@@ -31,17 +31,23 @@ export function drinkingGameCountries() {
   return [...new Set(drinkingGames.map((game) => game.country).filter((country): country is NonNullable<typeof country> => Boolean(country)))];
 }
 
+export function drinkingGameSpecialCategories() {
+  return [...new Set(drinkingGames.map((game) => game.specialCategory).filter((category): category is NonNullable<typeof category> => Boolean(category)))];
+}
+
 export function filterDrinkingGames(state: DrinkingGamesState) {
   const normalizedQuery = normalizeSearchText(state.query);
   return drinkingGames.filter((game) => {
-    const countryMatched = state.country === "all" || game.country === state.country;
-    if (!countryMatched) return false;
+    const filterMatched = state.country === "all" || game.country === state.country || game.specialCategory === state.country;
+    if (!filterMatched) return false;
     if (!normalizedQuery) return true;
     const haystack = normalizeSearchText([
       game.title,
       game.country,
+      game.specialCategory,
       game.summary,
       game.aliases.join(" "),
+      game.hiddenAliases?.join(" ") ?? "",
       game.mechanics.join(" "),
       game.rules.join(" ")
     ].join(" "));

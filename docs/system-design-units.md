@@ -834,6 +834,7 @@ type WerewolfVote = {
 - 道具なしで遊べる飲み会ゲームのルールデータを保持する。
 - UI表示用にはタイトル、概要、国、人数、時間、ルールだけを返す。
 - AI/cron更新用には別名、重複判定キー、参照元、レビュー日を保持する。
+- 道具なし辞典に入らない候補は、実装ゲーム候補として分けて扱う。
 
 主な型:
 
@@ -842,13 +843,16 @@ type DrinkingGameRecord = {
   id: string;
   title: string;
   aliases: string[];
-  country?: "日本" | "アメリカ" | "イギリス" | "国際";
+  hiddenAliases?: string[];
+  country?: "日本" | "アメリカ" | "イギリス" | "韓国" | "国際";
+  specialCategory?: "下ネタ";
   minPlayers: number;
   maxPlayers?: number;
   durationMin: number;
   summary: string;
   rules: string[];
   noEquipment: true;
+  mechanics: string[];
   duplicateKey: string;
   aiReviewHint: string;
   sourceRefs: string[];
@@ -861,8 +865,10 @@ type DrinkingGameRecord = {
 責務:
 
 - ゲーム名、別名、概要、ルール本文で検索する。
-- 国フィルタで絞り込む。
-- カテゴリ表示は国だけに限定し、内部の判定用mechanicsはUIカテゴリとして出さない。
+- 国フィルタと `下ネタ` 特別カテゴリで絞り込む。
+- カテゴリ表示は原則として国だけに限定し、例外カテゴリは `下ネタ` のみとする。
+- 直接的な元ネタ名は `hiddenAliases` として検索対象に入れるが、UIには表示しない。
+- 内部の判定用mechanicsはUIカテゴリとして出さない。
 
 ### U-DRINK-003 DrinkingGameDedup Unit
 
@@ -871,6 +877,7 @@ type DrinkingGameRecord = {
 - AI/cronが新候補を追加する前に、既存レコードと重複しないか判定する。
 - `duplicateKey`、`aliases`、ルールの核となるmechanicsを見て同一系統を判定する。
 - 同一系統なら新規追加せず、既存レコードへ別名や参照元を追記する。
+- カード、サイコロ、カップ、ブロックなど物理アイテムが核なら辞典へ追加せず、別ゲーム実装候補として残す。
 
 ### U-DRINK-004 DrinkingGameBrowser Unit
 
@@ -996,7 +1003,7 @@ flowchart TD
 ```mermaid
 flowchart TD
   A["設定"] --> B["一覧表示"]
-  B --> C["検索/国フィルタ"]
+  B --> C["検索/カテゴリフィルタ"]
   C --> D["ルール詳細を開く"]
   D --> B
 ```

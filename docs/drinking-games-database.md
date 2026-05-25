@@ -17,8 +17,11 @@
 - カード、ボード、紙、ペン、サイコロ、専用アプリが必須のゲーム
 - 飲酒強要を前提にしないと成立しないゲーム
 - ルール文やお題が外部サービスのコピーになるもの
+- 道具なし版へ自然に置き換えられない、カード判定や物理アイテム判定が核のゲーム
 
-UIで表示するカテゴリは国だけです。国が特定できないもの、国を特定する意味が薄いものは `国際` または未設定にします。
+UIで表示する通常カテゴリは国だけです。国が特定できないもの、国を特定する意味が薄いものは `国際` または未設定にします。
+
+例外として、少し大人向けの会話ゲームだけ `下ネタ` を特別カテゴリとして表示できます。ただし直接的なゲーム名や説明は避け、画面には婉曲なタイトルとルールだけを出します。
 
 ## データ構造
 
@@ -29,7 +32,9 @@ type DrinkingGameRecord = {
   id: string;
   title: string;
   aliases: string[];
-  country?: "日本" | "アメリカ" | "イギリス" | "国際";
+  hiddenAliases?: string[];
+  country?: "日本" | "アメリカ" | "イギリス" | "韓国" | "国際";
+  specialCategory?: "下ネタ";
   minPlayers: number;
   maxPlayers?: number;
   durationMin: number;
@@ -46,7 +51,9 @@ type DrinkingGameRecord = {
 
 重要フィールド:
 
-- `aliases`: 日本語名、英語名、地域名、表記ゆれを入れる。
+- `aliases`: 日本語名、英語名、地域名、表記ゆれを入れる。UIに表示してよい別名だけを入れる。
+- `hiddenAliases`: 検索と重複判定には必要だが、UIに出したくない直接的な元ネタ名を入れる。
+- `specialCategory`: 通常は未設定。大人向けの会話ゲームだけ `下ネタ` を指定できる。
 - `mechanics`: AI判定用の内部タグ。UIカテゴリとしては出さない。
 - `duplicateKey`: 同じ核の遊びをまとめるためのキー。
 - `aiReviewHint`: AIが「これは同じ遊びか、派生か」を判断するためのメモ。
@@ -65,7 +72,8 @@ AI/cronで新候補を見つけたら、次の順番で判定します。
 6. 同じ遊びなら新規追加せず、既存レコードの `aliases`、`sourceRefs`、`aiReviewHint` を補強する。
 7. 新しい遊びなら、新規 `DrinkingGameRecord` を追加する。
 8. ルール文は外部サイトをコピーせず、短い独自文言で書く。
-9. `npm run smoke`、`npm run typecheck`、`npm run build` を通す。
+9. 下ネタ寄りの候補は、直接語を `hiddenAliases` に置き、`title`、`summary`、`rules` は婉曲に書く。
+10. `npm run smoke`、`npm run typecheck`、`npm run build` を通す。
 
 ## 重複しやすい例
 
@@ -73,7 +81,18 @@ AI/cronで新候補を見つけたら、次の順番で判定します。
 - `第一印象ゲーム` と `Most Likely To` は同じ核の指さし投票系。
 - `Never Have I Ever`、`I Never`、`10 fingers` は同じ系統。
 - `Buzz` と `21` はどちらも数えるゲームだが、Buzzは置換、21はルール蓄積が核なので別レコード。
+- `Baskin Robbins 31` は31を踏まない数取り、`369` は3/6/9の拍手置換、`007 Bang` は指名と両隣反応なので別レコード。
+- `ほうれん草ゲーム` と `ファイヤーゲーム` はどちらも主導権移動系だが、前者は2本の受け渡し数、後者は左右方向のひっかけが核。
 - `NGワードゲーム`、`英語禁止ゲーム`、`数字禁止ゲーム` は近いが、制限対象が明確に違うので別レコードにしてよい。
+- 直接的な名前で広まっている大人向けゲームは、画面用タイトルへ言い換え、元名は `hiddenAliases` へ寄せる。
+
+## 保留しやすい候補
+
+以下は面白くても、初期辞典では追加前に確認します。
+
+- `キングスカップ`、`飲みジェンガ`、`ビアポン`: カード、ブロック、カップなどが核。
+- `赤か黒か`、カード山を使う数字当て: トランプやランダムカードが核。アプリ内ミニゲーム化するなら別途実装候補。
+- 危険な一気飲み、強い飲酒強要、体調リスクが主役のゲーム: 辞典には入れない。
 
 ## cron更新の将来設計
 
@@ -99,5 +118,17 @@ cronは直接 `main` にpushしません。候補を作り、差分をレビュ�
 - CrowdSurf: `crowdsurf`
 - Cheers & Fun: `cheersFun`
 - Wikipedia: `wikipediaNever`, `wikipediaFingers`
+- DIME: `dimeTrend`
+- Korea Times: `koreaTimesApt`
+- So Cool Korea: `soCoolKoreaNumerals`
+- Korean Local: `koreanLocalBaskin31`
+- TOZ: `tozShesATen`, `tozSevenSeconds`
+- VAVA/App Store: `vavaAppStore`, `vavaAppmatch`
+- 芸能/店舗記事: `lalandInsertionVideo`, `bridgeInsertion`, `sonicaInsertion`
+- 飲み会ゲームまとめ: `drinkgameSpinach`, `drinkgameMansion`
+- 飲み会ゲーム.com: `nomigameFire`
+- Imposter Games: `imposterGames`
+- Wikipedia追加: `wikipediaKings`, `wikipediaYesNoBlackWhite`
+- RAGNET: `ragnetToolless`
 
 各URLは `src/data/drinkingGames.ts` の `drinkingGameSourceRefs` を参照してください。

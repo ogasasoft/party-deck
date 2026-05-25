@@ -3,7 +3,7 @@ import { distanceMeters } from "../src/core/distance";
 import { games, getGameDefinition } from "../src/core/gameRegistry";
 import { formatClock } from "../src/core/time";
 import { DEFAULT_PLAYERS } from "../src/core/types";
-import { drinkingGames } from "../src/data/drinkingGames";
+import { drinkingGameSourceRefs, drinkingGames } from "../src/data/drinkingGames";
 import { createGeoAnswer, createGeoState, currentGeoLocation, defaultGeoConfig } from "../src/games/geoGuessr";
 import { createDrinkingGamesState, defaultDrinkingGamesConfig, filterDrinkingGames } from "../src/games/drinkingGames";
 import { createMapillaryImageEndpoint } from "../src/games/mapillaryProvider";
@@ -125,15 +125,24 @@ function smokeGeoGuessr() {
 }
 
 function smokeDrinkingGames() {
-  assert.ok(drinkingGames.length >= 40);
+  assert.ok(drinkingGames.length >= 60);
   assert.equal(new Set(drinkingGames.map((game) => game.id)).size, drinkingGames.length);
   assert.ok(drinkingGames.every((game) => game.noEquipment));
   assert.ok(drinkingGames.every((game) => game.rules.length >= 3));
   assert.ok(drinkingGames.every((game) => game.duplicateKey.length > 0));
+  assert.ok(drinkingGames.every((game) => game.sourceRefs.every((sourceRef) => sourceRef in drinkingGameSourceRefs)));
 
   const state = createDrinkingGamesState(defaultDrinkingGamesConfig());
   assert.equal(filterDrinkingGames({ ...state, query: "NG", country: "all" }).some((game) => game.id === "ng-word"), true);
+  assert.equal(filterDrinkingGames({ ...state, query: "挿入", country: "all" }).some((game) => game.id === "soft-goal-word-story"), true);
+  assert.equal(filterDrinkingGames({ ...state, query: "Son Byung Ho", country: "all" }).some((game) => game.id === "never-have-i-ever"), true);
+  assert.equal(filterDrinkingGames({ ...state, query: "007", country: "all" }).some((game) => game.id === "zero-zero-seven-bang"), true);
+  assert.equal(filterDrinkingGames({ ...state, query: "ほうれん草", country: "all" }).some((game) => game.id === "spinach-relay"), true);
   assert.equal(filterDrinkingGames({ ...state, query: "", country: "日本" }).every((game) => game.country === "日本"), true);
+  assert.equal(filterDrinkingGames({ ...state, query: "", country: "韓国" }).some((game) => game.id === "apt-game"), true);
+  assert.equal(filterDrinkingGames({ ...state, query: "", country: "韓国" }).some((game) => game.id === "baskin-robbins-31"), true);
+  assert.equal(filterDrinkingGames({ ...state, query: "", country: "韓国" }).some((game) => game.id === "sam-yuk-gu"), true);
+  assert.equal(filterDrinkingGames({ ...state, query: "", country: "下ネタ" }).every((game) => game.specialCategory === "下ネタ"), true);
 }
 
 smokeGameRegistry();

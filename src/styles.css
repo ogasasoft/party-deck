@@ -547,6 +547,10 @@ h1 {
   color: #fff;
 }
 
+.filter-row button.special-filter {
+  border: 1px solid rgba(214, 69, 69, 0.2);
+}
+
 .drink-game-list {
   display: grid;
   gap: 12px;
@@ -566,6 +570,18 @@ h1 {
   grid-template-columns: 1fr auto;
   gap: 10px;
   align-items: start;
+}
+
+.card-pills {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.special-pill {
+  background: #2a2020;
+  color: #fff;
 }
 
 .drink-game-head h2 {
