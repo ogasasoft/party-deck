@@ -1,10 +1,11 @@
 import L from "leaflet";
 import type * as React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { CountdownTimer } from "./components/CountdownTimer";
 import { canShowAds } from "./core/adPolicy";
 import { games, getGameDefinition } from "./core/gameRegistry";
 import { createSeed } from "./core/random";
+import { sanitizeReloadPhase } from "./core/reloadSafety";
 import {
   clearAppState,
   clearGameSession,
@@ -61,9 +62,106 @@ import {
   WerewolfState,
   WerewolfVote
 } from "./games/werewolf";
+import { WordInfiltratorCategory, wordInfiltratorTopics } from "./data/wordInfiltratorTopics";
+import {
+  defaultWordInfiltratorConfig,
+  type WordInfiltratorConfig,
+  type WordInfiltratorState
+} from "./games/wordInfiltrator";
 import { loadMapillaryStreetImage, type StreetImageLoadResult } from "./games/mapillaryProvider";
+import { InsiderAnswerCategory, insiderAnswers } from "./data/insiderAnswers";
+import {
+  defaultInsiderGuessConfig,
+  type InsiderGuessConfig,
+  type InsiderGuessState
+} from "./games/insiderGuess";
+import { SpyLocationCategory, spyLocations } from "./data/spyLocations";
+import {
+  defaultSpyLocationConfig,
+  type SpyLocationConfig,
+  type SpyLocationState
+} from "./games/spyLocation";
+import { SpectrumScaleCategory, spectrumScales } from "./data/spectrumScales";
+import {
+  defaultSpectrumMeterConfig,
+  type SpectrumMeterConfig,
+  type SpectrumMeterState
+} from "./games/spectrumMeter";
+import { RankingAnswerCategory, rankingAnswerPrompts } from "./data/rankingAnswerPrompts";
+import {
+  defaultRankingAnswersConfig,
+  type RankingAnswersConfig,
+  type RankingAnswersState
+} from "./games/rankingAnswers";
+import { FakeArtistCategory, fakeArtistTopics } from "./data/fakeArtistTopics";
+import {
+  defaultFakeArtistConfig,
+  type FakeArtistConfig,
+  type FakeArtistState
+} from "./games/fakeArtist";
 
 type Screen = "home" | "players" | "setup" | "game";
+
+const AddedTableGameScreens = lazy(() => import("./features/AddedTableGames"));
+const addedTableGameIds = ["word-infiltrator", "insider-guess", "spy-location", "spectrum-meter", "ranking-answers", "fake-artist"] as const satisfies readonly GameId[];
+
+const wordInfiltratorCategoryOptions = [...new Set(wordInfiltratorTopics.map((topic) => topic.category))];
+const wordInfiltratorCategoryLabels: Record<"all" | WordInfiltratorCategory, string> = {
+  all: "すべて",
+  food: "食べ物",
+  place: "場所",
+  daily: "日用品",
+  culture: "エンタメ",
+  nature: "自然",
+  action: "行動"
+};
+const insiderAnswerCategoryOptions = [...new Set(insiderAnswers.map((answer) => answer.category))];
+const insiderAnswerCategoryLabels: Record<"all" | InsiderAnswerCategory, string> = {
+  all: "すべて",
+  object: "もの",
+  food: "食べ物",
+  place: "場所",
+  daily: "暮らし",
+  culture: "文化",
+  nature: "自然"
+};
+const spyLocationCategoryOptions = [...new Set(spyLocations.map((location) => location.category))];
+const spyLocationCategoryLabels: Record<"all" | SpyLocationCategory, string> = {
+  all: "すべて",
+  travel: "移動",
+  daily: "日常",
+  work: "仕事",
+  leisure: "遊び",
+  nature: "自然",
+  event: "イベント"
+};
+const spectrumScaleCategoryOptions = [...new Set(spectrumScales.map((scale) => scale.category))];
+const spectrumScaleCategoryLabels: Record<"all" | SpectrumScaleCategory, string> = {
+  all: "すべて",
+  taste: "好み",
+  life: "暮らし",
+  personality: "性格",
+  culture: "カルチャー",
+  silly: "変化球"
+};
+const rankingAnswerCategoryOptions = [...new Set(rankingAnswerPrompts.map((prompt) => prompt.category))];
+const rankingAnswerCategoryLabels: Record<"all" | RankingAnswerCategory, string> = {
+  all: "すべて",
+  daily: "日常",
+  party: "パーティ",
+  acting: "演技",
+  taste: "好み",
+  silly: "変化球"
+};
+const fakeArtistCategoryOptions = [...new Set(fakeArtistTopics.map((topic) => topic.category))];
+const fakeArtistCategoryLabels: Record<"all" | FakeArtistCategory, string> = {
+  all: "すべて",
+  food: "食べ物",
+  place: "場所",
+  animal: "生き物",
+  object: "もの",
+  event: "できごと"
+};
 
 type PersistedAppState = {
   screen: Screen;
@@ -73,6 +171,12 @@ type PersistedAppState = {
   numberConfig: NumberTalkConfig;
   werewolfConfig: WerewolfConfig;
   drinkingGamesConfig: DrinkingGamesConfig;
+  wordInfiltratorConfig: WordInfiltratorConfig;
+  insiderGuessConfig: InsiderGuessConfig;
+  spyLocationConfig: SpyLocationConfig;
+  spectrumMeterConfig: SpectrumMeterConfig;
+  rankingAnswersConfig: RankingAnswersConfig;
+  fakeArtistConfig: FakeArtistConfig;
   activeSession: ActiveSessionRef | null;
 };
 
@@ -81,6 +185,12 @@ type RestoredAppState = PersistedAppState & {
   numberState: NumberTalkState | null;
   werewolfState: WerewolfState | null;
   drinkingGamesState: DrinkingGamesState | null;
+  wordInfiltratorState: WordInfiltratorState | null;
+  insiderGuessState: InsiderGuessState | null;
+  spyLocationState: SpyLocationState | null;
+  spectrumMeterState: SpectrumMeterState | null;
+  rankingAnswersState: RankingAnswersState | null;
+  fakeArtistState: FakeArtistState | null;
 };
 
 export function App() {
@@ -92,10 +202,22 @@ export function App() {
   const [numberConfig, setNumberConfig] = useState<NumberTalkConfig>(() => restored?.numberConfig ?? defaultNumberTalkConfig());
   const [werewolfConfig, setWerewolfConfig] = useState<WerewolfConfig>(() => normalizeWerewolfConfig(restored?.werewolfConfig ?? defaultWerewolfConfig(), players.length));
   const [drinkingGamesConfig] = useState<DrinkingGamesConfig>(() => restored?.drinkingGamesConfig ?? defaultDrinkingGamesConfig());
+  const [wordInfiltratorConfig, setWordInfiltratorConfig] = useState<WordInfiltratorConfig>(() => restored?.wordInfiltratorConfig ?? defaultWordInfiltratorConfig());
+  const [insiderGuessConfig, setInsiderGuessConfig] = useState<InsiderGuessConfig>(() => restored?.insiderGuessConfig ?? defaultInsiderGuessConfig());
+  const [spyLocationConfig, setSpyLocationConfig] = useState<SpyLocationConfig>(() => restored?.spyLocationConfig ?? defaultSpyLocationConfig());
+  const [spectrumMeterConfig, setSpectrumMeterConfig] = useState<SpectrumMeterConfig>(() => restored?.spectrumMeterConfig ?? defaultSpectrumMeterConfig());
+  const [rankingAnswersConfig, setRankingAnswersConfig] = useState<RankingAnswersConfig>(() => restored?.rankingAnswersConfig ?? defaultRankingAnswersConfig());
+  const [fakeArtistConfig, setFakeArtistConfig] = useState<FakeArtistConfig>(() => restored?.fakeArtistConfig ?? defaultFakeArtistConfig());
   const [geoState, setGeoState] = useState<GeoState | null>(restored?.geoState ?? null);
   const [numberState, setNumberState] = useState<NumberTalkState | null>(restored?.numberState ?? null);
   const [werewolfState, setWerewolfState] = useState<WerewolfState | null>(restored?.werewolfState ?? null);
   const [drinkingGamesState, setDrinkingGamesState] = useState<DrinkingGamesState | null>(restored?.drinkingGamesState ?? null);
+  const [wordInfiltratorState, setWordInfiltratorState] = useState<WordInfiltratorState | null>(restored?.wordInfiltratorState ?? null);
+  const [insiderGuessState, setInsiderGuessState] = useState<InsiderGuessState | null>(restored?.insiderGuessState ?? null);
+  const [spyLocationState, setSpyLocationState] = useState<SpyLocationState | null>(restored?.spyLocationState ?? null);
+  const [spectrumMeterState, setSpectrumMeterState] = useState<SpectrumMeterState | null>(restored?.spectrumMeterState ?? null);
+  const [rankingAnswersState, setRankingAnswersState] = useState<RankingAnswersState | null>(restored?.rankingAnswersState ?? null);
+  const [fakeArtistState, setFakeArtistState] = useState<FakeArtistState | null>(restored?.fakeArtistState ?? null);
   const [activeSession, setActiveSession] = useState<ActiveSessionRef | null>(restored?.activeSession ?? null);
   const [isStarting, setIsStarting] = useState(false);
 
@@ -106,7 +228,13 @@ export function App() {
           geoState,
           numberState,
           werewolfState,
-          drinkingGamesState
+          drinkingGamesState,
+          wordInfiltratorState,
+          insiderGuessState,
+          spyLocationState,
+          spectrumMeterState,
+          rankingAnswersState,
+          fakeArtistState
         })
       : null;
     if (activeSession && gameState) {
@@ -127,9 +255,40 @@ export function App() {
       numberConfig,
       werewolfConfig,
       drinkingGamesConfig,
+      wordInfiltratorConfig,
+      insiderGuessConfig,
+      spyLocationConfig,
+      spectrumMeterConfig,
+      rankingAnswersConfig,
+      fakeArtistConfig,
       activeSession
     } satisfies PersistedAppState);
-  }, [screen, selectedGame, players, geoConfig, numberConfig, werewolfConfig, drinkingGamesConfig, geoState, numberState, werewolfState, drinkingGamesState, activeSession]);
+  }, [
+    screen,
+    selectedGame,
+    players,
+    geoConfig,
+    numberConfig,
+    werewolfConfig,
+    drinkingGamesConfig,
+    wordInfiltratorConfig,
+    insiderGuessConfig,
+    spyLocationConfig,
+    spectrumMeterConfig,
+    rankingAnswersConfig,
+    fakeArtistConfig,
+    geoState,
+    numberState,
+    werewolfState,
+    drinkingGamesState,
+    wordInfiltratorState,
+    insiderGuessState,
+    spyLocationState,
+    spectrumMeterState,
+    rankingAnswersState,
+    fakeArtistState,
+    activeSession
+  ]);
 
   const selectedSummary = selectedGame ? getGameDefinition(selectedGame) : null;
 
@@ -140,6 +299,12 @@ export function App() {
     setNumberState(null);
     setWerewolfState(null);
     setDrinkingGamesState(null);
+    setWordInfiltratorState(null);
+    setInsiderGuessState(null);
+    setSpyLocationState(null);
+    setSpectrumMeterState(null);
+    setRankingAnswersState(null);
+    setFakeArtistState(null);
     setScreen("home");
     setSelectedGame(null);
     clearAppState();
@@ -152,6 +317,12 @@ export function App() {
     setNumberState(null);
     setWerewolfState(null);
     setDrinkingGamesState(null);
+    setWordInfiltratorState(null);
+    setInsiderGuessState(null);
+    setSpyLocationState(null);
+    setSpectrumMeterState(null);
+    setRankingAnswersState(null);
+    setFakeArtistState(null);
     setSelectedGame(gameId);
     setScreen("setup");
   }
@@ -169,6 +340,12 @@ export function App() {
         setNumberState(null);
         setWerewolfState(null);
         setDrinkingGamesState(null);
+        setWordInfiltratorState(null);
+        setInsiderGuessState(null);
+        setSpyLocationState(null);
+        setSpectrumMeterState(null);
+        setRankingAnswersState(null);
+        setFakeArtistState(null);
       }
       if (selectedGame === "number-talk") {
         const state = await getGameDefinition("number-talk").createState({ players, config: numberConfig, seed });
@@ -176,6 +353,12 @@ export function App() {
         setGeoState(null);
         setWerewolfState(null);
         setDrinkingGamesState(null);
+        setWordInfiltratorState(null);
+        setInsiderGuessState(null);
+        setSpyLocationState(null);
+        setSpectrumMeterState(null);
+        setRankingAnswersState(null);
+        setFakeArtistState(null);
       }
       if (selectedGame === "werewolf") {
         const state = await getGameDefinition("werewolf").createState({ players, config: werewolfConfig, seed });
@@ -183,6 +366,12 @@ export function App() {
         setGeoState(null);
         setNumberState(null);
         setDrinkingGamesState(null);
+        setWordInfiltratorState(null);
+        setInsiderGuessState(null);
+        setSpyLocationState(null);
+        setSpectrumMeterState(null);
+        setRankingAnswersState(null);
+        setFakeArtistState(null);
       }
       if (selectedGame === "drinking-games") {
         const state = await getGameDefinition("drinking-games").createState({ players, config: drinkingGamesConfig, seed });
@@ -190,6 +379,90 @@ export function App() {
         setGeoState(null);
         setNumberState(null);
         setWerewolfState(null);
+        setWordInfiltratorState(null);
+        setInsiderGuessState(null);
+        setSpyLocationState(null);
+        setSpectrumMeterState(null);
+        setRankingAnswersState(null);
+        setFakeArtistState(null);
+      }
+      if (selectedGame === "word-infiltrator") {
+        const state = await getGameDefinition("word-infiltrator").createState({ players, config: wordInfiltratorConfig, seed });
+        setWordInfiltratorState(state);
+        setGeoState(null);
+        setNumberState(null);
+        setWerewolfState(null);
+        setDrinkingGamesState(null);
+        setInsiderGuessState(null);
+        setSpyLocationState(null);
+        setSpectrumMeterState(null);
+        setRankingAnswersState(null);
+        setFakeArtistState(null);
+      }
+      if (selectedGame === "insider-guess") {
+        const state = await getGameDefinition("insider-guess").createState({ players, config: insiderGuessConfig, seed });
+        setInsiderGuessState(state);
+        setGeoState(null);
+        setNumberState(null);
+        setWerewolfState(null);
+        setDrinkingGamesState(null);
+        setWordInfiltratorState(null);
+        setSpyLocationState(null);
+        setSpectrumMeterState(null);
+        setRankingAnswersState(null);
+        setFakeArtistState(null);
+      }
+      if (selectedGame === "spy-location") {
+        const state = await getGameDefinition("spy-location").createState({ players, config: spyLocationConfig, seed });
+        setSpyLocationState(state);
+        setGeoState(null);
+        setNumberState(null);
+        setWerewolfState(null);
+        setDrinkingGamesState(null);
+        setWordInfiltratorState(null);
+        setInsiderGuessState(null);
+        setSpectrumMeterState(null);
+        setRankingAnswersState(null);
+        setFakeArtistState(null);
+      }
+      if (selectedGame === "spectrum-meter") {
+        const state = await getGameDefinition("spectrum-meter").createState({ players, config: spectrumMeterConfig, seed });
+        setSpectrumMeterState(state);
+        setGeoState(null);
+        setNumberState(null);
+        setWerewolfState(null);
+        setDrinkingGamesState(null);
+        setWordInfiltratorState(null);
+        setInsiderGuessState(null);
+        setSpyLocationState(null);
+        setRankingAnswersState(null);
+        setFakeArtistState(null);
+      }
+      if (selectedGame === "ranking-answers") {
+        const state = await getGameDefinition("ranking-answers").createState({ players, config: rankingAnswersConfig, seed });
+        setRankingAnswersState(state);
+        setGeoState(null);
+        setNumberState(null);
+        setWerewolfState(null);
+        setDrinkingGamesState(null);
+        setWordInfiltratorState(null);
+        setInsiderGuessState(null);
+        setSpyLocationState(null);
+        setSpectrumMeterState(null);
+        setFakeArtistState(null);
+      }
+      if (selectedGame === "fake-artist") {
+        const state = await getGameDefinition("fake-artist").createState({ players, config: fakeArtistConfig, seed });
+        setFakeArtistState(state);
+        setGeoState(null);
+        setNumberState(null);
+        setWerewolfState(null);
+        setDrinkingGamesState(null);
+        setWordInfiltratorState(null);
+        setInsiderGuessState(null);
+        setSpyLocationState(null);
+        setSpectrumMeterState(null);
+        setRankingAnswersState(null);
       }
       setActiveSession(nextSession);
       setScreen("game");
@@ -212,6 +485,18 @@ export function App() {
           setNumberConfig={setNumberConfig}
           werewolfConfig={werewolfConfig}
           setWerewolfConfig={setWerewolfConfig}
+          wordInfiltratorConfig={wordInfiltratorConfig}
+          setWordInfiltratorConfig={setWordInfiltratorConfig}
+          insiderGuessConfig={insiderGuessConfig}
+          setInsiderGuessConfig={setInsiderGuessConfig}
+          spyLocationConfig={spyLocationConfig}
+          setSpyLocationConfig={setSpyLocationConfig}
+          spectrumMeterConfig={spectrumMeterConfig}
+          setSpectrumMeterConfig={setSpectrumMeterConfig}
+          rankingAnswersConfig={rankingAnswersConfig}
+          setRankingAnswersConfig={setRankingAnswersConfig}
+          fakeArtistConfig={fakeArtistConfig}
+          setFakeArtistConfig={setFakeArtistConfig}
           onBack={navigateHome}
           onStart={startGame}
           isStarting={isStarting}
@@ -229,8 +514,43 @@ export function App() {
       {screen === "game" && selectedGame === "drinking-games" && drinkingGamesState && (
         <DrinkingGamesBrowser state={drinkingGamesState} setState={setDrinkingGamesState} onHome={navigateHome} />
       )}
+      {screen === "game" && selectedGame && isAddedTableGame(selectedGame) && (
+        <Suspense
+          fallback={
+            <section className="screen">
+              <Topbar title="読み込み中" />
+              <div className="content">
+                <div className="notice">ゲームを読み込んでいます。</div>
+              </div>
+            </section>
+          }
+        >
+          <AddedTableGameScreens
+            selectedGame={selectedGame}
+            players={players}
+            onHome={navigateHome}
+            onRestart={startGame}
+            wordInfiltratorState={wordInfiltratorState}
+            setWordInfiltratorState={setWordInfiltratorState}
+            insiderGuessState={insiderGuessState}
+            setInsiderGuessState={setInsiderGuessState}
+            spyLocationState={spyLocationState}
+            setSpyLocationState={setSpyLocationState}
+            spectrumMeterState={spectrumMeterState}
+            setSpectrumMeterState={setSpectrumMeterState}
+            rankingAnswersState={rankingAnswersState}
+            setRankingAnswersState={setRankingAnswersState}
+            fakeArtistState={fakeArtistState}
+            setFakeArtistState={setFakeArtistState}
+          />
+        </Suspense>
+      )}
     </main>
   );
+}
+
+function isAddedTableGame(gameId: GameId): gameId is (typeof addedTableGameIds)[number] {
+  return addedTableGameIds.includes(gameId as (typeof addedTableGameIds)[number]);
 }
 
 function Topbar(props: { title: string; eyebrow?: string; onBack?: () => void; right?: React.ReactNode }) {
@@ -351,6 +671,18 @@ function SetupScreen(props: {
   setNumberConfig: (config: NumberTalkConfig) => void;
   werewolfConfig: WerewolfConfig;
   setWerewolfConfig: (config: WerewolfConfig) => void;
+  wordInfiltratorConfig: WordInfiltratorConfig;
+  setWordInfiltratorConfig: (config: WordInfiltratorConfig) => void;
+  insiderGuessConfig: InsiderGuessConfig;
+  setInsiderGuessConfig: (config: InsiderGuessConfig) => void;
+  spyLocationConfig: SpyLocationConfig;
+  setSpyLocationConfig: (config: SpyLocationConfig) => void;
+  spectrumMeterConfig: SpectrumMeterConfig;
+  setSpectrumMeterConfig: (config: SpectrumMeterConfig) => void;
+  rankingAnswersConfig: RankingAnswersConfig;
+  setRankingAnswersConfig: (config: RankingAnswersConfig) => void;
+  fakeArtistConfig: FakeArtistConfig;
+  setFakeArtistConfig: (config: FakeArtistConfig) => void;
   onBack: () => void;
   onStart: () => void;
   isStarting: boolean;
@@ -446,6 +778,172 @@ function SetupScreen(props: {
               "同じゲームをAIが重複追加しないよう、別名、重複判定キー、参照元をデータに持たせています。"
             ]}
           />
+        )}
+        {props.game.id === "word-infiltrator" && (
+          <>
+            <RuleDetails
+              title="ルール"
+              summary="1人だけ秘密の言葉を知らないまま、全員がヒントを出して潜入者を探します。"
+              details={[
+                "多数派は同じ秘密の言葉を見ます。潜入者はカテゴリだけを見ます。",
+                "全員が順番に、秘密の言葉に近すぎないヒントを1つ言います。",
+                "投票で潜入者を見つけたら、潜入者は最後に秘密の言葉を推理できます。"
+              ]}
+            />
+            <SettingRow title="お題" detail="カテゴリを選択">
+              <Segmented
+                value={props.wordInfiltratorConfig.topicCategory}
+                options={["all", ...wordInfiltratorCategoryOptions]}
+                labels={wordInfiltratorCategoryLabels}
+                onChange={(value) => props.setWordInfiltratorConfig({ ...props.wordInfiltratorConfig, topicCategory: value as "all" | WordInfiltratorCategory })}
+              />
+            </SettingRow>
+            <SettingRow title="時間" detail="投票前の会話時間">
+              <Segmented
+                value={String(props.wordInfiltratorConfig.discussionTimeSec)}
+                options={["180", "300"]}
+                labels={{ "180": "3分", "300": "5分" }}
+                onChange={(value) => props.setWordInfiltratorConfig({ ...props.wordInfiltratorConfig, discussionTimeSec: Number(value) as 180 | 300 })}
+              />
+            </SettingRow>
+          </>
+        )}
+        {props.game.id === "insider-guess" && (
+          <>
+            <RuleDetails
+              title="ルール"
+              summary="進行役へ質問して答えを探し、その後こっそり答えを知っていた内通者を見つけます。"
+              details={[
+                "進行役と内通者だけが答えを知ります。市民は答えを知りません。",
+                "質問は進行役が「はい」「いいえ」「わからない」で答えられる形にします。",
+                "答えを当てたら、誰が内通者だったか投票します。"
+              ]}
+            />
+            <SettingRow title="答え" detail="カテゴリを選択">
+              <Segmented
+                value={props.insiderGuessConfig.answerCategory}
+                options={["all", ...insiderAnswerCategoryOptions]}
+                labels={insiderAnswerCategoryLabels}
+                onChange={(value) => props.setInsiderGuessConfig({ ...props.insiderGuessConfig, answerCategory: value as "all" | InsiderAnswerCategory })}
+              />
+            </SettingRow>
+            <SettingRow title="質問" detail="答えを探す時間">
+              <Segmented
+                value={String(props.insiderGuessConfig.questionTimeSec)}
+                options={["300", "480"]}
+                labels={{ "300": "5分", "480": "8分" }}
+                onChange={(value) => props.setInsiderGuessConfig({ ...props.insiderGuessConfig, questionTimeSec: Number(value) as 300 | 480 })}
+              />
+            </SettingRow>
+            <SettingRow title="議論" detail="内通者を探す時間">
+              <Segmented
+                value={String(props.insiderGuessConfig.discussionTimeSec)}
+                options={["120", "180"]}
+                labels={{ "120": "2分", "180": "3分" }}
+                onChange={(value) => props.setInsiderGuessConfig({ ...props.insiderGuessConfig, discussionTimeSec: Number(value) as 120 | 180 })}
+              />
+            </SettingRow>
+          </>
+        )}
+        {props.game.id === "spy-location" && (
+          <>
+            <RuleDetails
+              title="ルール"
+              summary="全員は同じ場所を知っています。1人だけ場所を知らないスパイを質問で探します。"
+              details={[
+                "スパイ以外には場所を表示します。スパイには場所を表示しません。",
+                "質問しながら、相手が場所を知っているか見極めます。",
+                "告発でスパイを当てるか、スパイが場所を当てると決着します。"
+              ]}
+            />
+            <SettingRow title="場所" detail="カテゴリを選択">
+              <Segmented
+                value={props.spyLocationConfig.locationCategory}
+                options={["all", ...spyLocationCategoryOptions]}
+                labels={spyLocationCategoryLabels}
+                onChange={(value) => props.setSpyLocationConfig({ ...props.spyLocationConfig, locationCategory: value as "all" | SpyLocationCategory })}
+              />
+            </SettingRow>
+            <SettingRow title="質問" detail="質問時間">
+              <Segmented
+                value={String(props.spyLocationConfig.questionTimeSec)}
+                options={["480", "600"]}
+                labels={{ "480": "8分", "600": "10分" }}
+                onChange={(value) => props.setSpyLocationConfig({ ...props.spyLocationConfig, questionTimeSec: Number(value) as 480 | 600 })}
+              />
+            </SettingRow>
+          </>
+        )}
+        {props.game.id === "spectrum-meter" && (
+          <>
+            <RuleDetails
+              title="ルール"
+              summary="親だけが0から100の正解位置を見て、みんなはヒントから位置を推理します。"
+              details={[
+                "親は左右の尺度と正解位置を見て、ちょうどよいヒントを出します。",
+                "回答側は相談してスライダーを動かします。",
+                "正解位置に近いほど高得点です。親を交代しながら複数回遊びます。"
+              ]}
+            />
+            <SettingRow title="尺度" detail="カテゴリを選択">
+              <Segmented
+                value={props.spectrumMeterConfig.scaleCategory}
+                options={["all", ...spectrumScaleCategoryOptions]}
+                labels={spectrumScaleCategoryLabels}
+                onChange={(value) => props.setSpectrumMeterConfig({ ...props.spectrumMeterConfig, scaleCategory: value as "all" | SpectrumScaleCategory })}
+              />
+            </SettingRow>
+            <SettingRow title="回数" detail="親を交代する回数">
+              <Segmented
+                value={String(props.spectrumMeterConfig.roundCount)}
+                options={["3", "5"]}
+                labels={{ "3": "3回", "5": "5回" }}
+                onChange={(value) => props.setSpectrumMeterConfig({ ...props.spectrumMeterConfig, roundCount: Number(value) as 3 | 5 })}
+              />
+            </SettingRow>
+          </>
+        )}
+        {props.game.id === "ranking-answers" && (
+          <>
+            <RuleDetails
+              title="ルール"
+              summary="各自の1-10の秘密番号に合う回答を出し、キャプテンが小さい順に並べます。"
+              details={[
+                "数字は1から10で、1人1つずつ秘密に確認します。",
+                "全員が数字の強さに合う回答を言い、キャプテンだけが順番を並べます。",
+                "公開した数字が前より小さくなった回数がミスです。5回以内なら成功です。"
+              ]}
+            />
+            <SettingRow title="お題" detail="カテゴリを選択">
+              <Segmented
+                value={props.rankingAnswersConfig.promptCategory}
+                options={["all", ...rankingAnswerCategoryOptions]}
+                labels={rankingAnswerCategoryLabels}
+                onChange={(value) => props.setRankingAnswersConfig({ ...props.rankingAnswersConfig, promptCategory: value as "all" | RankingAnswerCategory })}
+              />
+            </SettingRow>
+          </>
+        )}
+        {props.game.id === "fake-artist" && (
+          <>
+            <RuleDetails
+              title="ルール"
+              summary="1人だけお題を知らないまま、全員で1本ずつ線を描いて偽物を探します。"
+              details={[
+                "本物はカテゴリとお題を見ます。偽物はカテゴリだけを見ます。",
+                "全員が2周、1本ずつ線を描きます。",
+                "投票で偽物を見つけても、偽物がお題を当てたら偽物側の勝利です。"
+              ]}
+            />
+            <SettingRow title="お題" detail="カテゴリを選択">
+              <Segmented
+                value={props.fakeArtistConfig.topicCategory}
+                options={["all", ...fakeArtistCategoryOptions]}
+                labels={fakeArtistCategoryLabels}
+                onChange={(value) => props.setFakeArtistConfig({ ...props.fakeArtistConfig, topicCategory: value as "all" | FakeArtistCategory })}
+              />
+            </SettingRow>
+          </>
         )}
         <button className="primary" type="button" onClick={props.onStart} disabled={!canStart || props.isStarting}>
           {props.isStarting ? "準備中..." : props.game.id === "drinking-games" ? "一覧を見る" : "はじめる"}
@@ -1314,6 +1812,24 @@ function PlayerStrip(props: { players: Player[] }) {
   );
 }
 
+function PlayerOrder(props: { playerIds: string[]; players: Player[] }) {
+  return (
+    <div className="order-list">
+      {props.playerIds.map((playerId, index) => {
+        const player = props.players.find((item) => item.id === playerId);
+        if (!player) return null;
+        return (
+          <div key={player.id} className="order-item simple-order-item">
+            <span className="rank">{index + 1}</span>
+            <span className="dot" style={{ "--chip-color": player.color } as React.CSSProperties} />
+            <strong>{player.nickname}</strong>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function RuleDetails(props: { title: string; summary: string; details: string[] }) {
   return (
     <section className="rule-card">
@@ -1400,15 +1916,6 @@ function Segmented(props: { value: string; options: string[]; labels?: Record<st
   );
 }
 
-function Note(props: { title: string; text: string }) {
-  return (
-    <div className="note">
-      <strong>{props.title}</strong>
-      <span>{props.text}</span>
-    </div>
-  );
-}
-
 function AdSlot(props: { context: Parameters<typeof canShowAds>[0] }) {
   if (!canShowAds(props.context)) return null;
   return <div className="ad-slot">広告エリア</div>;
@@ -1422,6 +1929,12 @@ function restorePersistedAppState(): RestoredAppState | null {
   let numberState: NumberTalkState | null = null;
   let werewolfState: WerewolfState | null = null;
   let drinkingGamesState: DrinkingGamesState | null = null;
+  let wordInfiltratorState: WordInfiltratorState | null = null;
+  let insiderGuessState: InsiderGuessState | null = null;
+  let spyLocationState: SpyLocationState | null = null;
+  let spectrumMeterState: SpectrumMeterState | null = null;
+  let rankingAnswersState: RankingAnswersState | null = null;
+  let fakeArtistState: FakeArtistState | null = null;
 
   if (persisted.activeSession?.gameId === "geo") {
     geoState = sanitizeLoadedGeoState(loadGameSession<GeoState>(persisted.activeSession.sessionId, "geo")?.state ?? null);
@@ -1435,8 +1948,26 @@ function restorePersistedAppState(): RestoredAppState | null {
   if (persisted.activeSession?.gameId === "drinking-games") {
     drinkingGamesState = sanitizeLoadedDrinkingGamesState(loadGameSession<DrinkingGamesState>(persisted.activeSession.sessionId, "drinking-games")?.state ?? null);
   }
+  if (persisted.activeSession?.gameId === "word-infiltrator") {
+    wordInfiltratorState = sanitizeLoadedWordInfiltratorState(loadGameSession<WordInfiltratorState>(persisted.activeSession.sessionId, "word-infiltrator")?.state ?? null);
+  }
+  if (persisted.activeSession?.gameId === "insider-guess") {
+    insiderGuessState = sanitizeLoadedInsiderGuessState(loadGameSession<InsiderGuessState>(persisted.activeSession.sessionId, "insider-guess")?.state ?? null);
+  }
+  if (persisted.activeSession?.gameId === "spy-location") {
+    spyLocationState = sanitizeLoadedSpyLocationState(loadGameSession<SpyLocationState>(persisted.activeSession.sessionId, "spy-location")?.state ?? null);
+  }
+  if (persisted.activeSession?.gameId === "spectrum-meter") {
+    spectrumMeterState = sanitizeLoadedSpectrumMeterState(loadGameSession<SpectrumMeterState>(persisted.activeSession.sessionId, "spectrum-meter")?.state ?? null);
+  }
+  if (persisted.activeSession?.gameId === "ranking-answers") {
+    rankingAnswersState = sanitizeLoadedRankingAnswersState(loadGameSession<RankingAnswersState>(persisted.activeSession.sessionId, "ranking-answers")?.state ?? null);
+  }
+  if (persisted.activeSession?.gameId === "fake-artist") {
+    fakeArtistState = sanitizeLoadedFakeArtistState(loadGameSession<FakeArtistState>(persisted.activeSession.sessionId, "fake-artist")?.state ?? null);
+  }
 
-  const hasActiveState = Boolean(geoState ?? numberState ?? werewolfState ?? drinkingGamesState);
+  const hasActiveState = Boolean(geoState ?? numberState ?? werewolfState ?? drinkingGamesState ?? wordInfiltratorState ?? insiderGuessState ?? spyLocationState ?? spectrumMeterState ?? rankingAnswersState ?? fakeArtistState);
   if (persisted.screen === "game" && !hasActiveState) {
     persisted.screen = "home";
     persisted.selectedGame = null;
@@ -1448,18 +1979,41 @@ function restorePersistedAppState(): RestoredAppState | null {
     geoState,
     numberState,
     werewolfState,
-    drinkingGamesState
+    drinkingGamesState,
+    wordInfiltratorState,
+    insiderGuessState,
+    spyLocationState,
+    spectrumMeterState,
+    rankingAnswersState,
+    fakeArtistState
   };
 }
 
 function getActiveGameState(
   gameId: GameId,
-  states: { geoState: GeoState | null; numberState: NumberTalkState | null; werewolfState: WerewolfState | null; drinkingGamesState: DrinkingGamesState | null }
+  states: {
+    geoState: GeoState | null;
+    numberState: NumberTalkState | null;
+    werewolfState: WerewolfState | null;
+    drinkingGamesState: DrinkingGamesState | null;
+    wordInfiltratorState: WordInfiltratorState | null;
+    insiderGuessState: InsiderGuessState | null;
+    spyLocationState: SpyLocationState | null;
+    spectrumMeterState: SpectrumMeterState | null;
+    rankingAnswersState: RankingAnswersState | null;
+    fakeArtistState: FakeArtistState | null;
+  }
 ) {
   if (gameId === "geo") return states.geoState;
   if (gameId === "number-talk") return states.numberState;
   if (gameId === "werewolf") return states.werewolfState;
-  return states.drinkingGamesState;
+  if (gameId === "drinking-games") return states.drinkingGamesState;
+  if (gameId === "word-infiltrator") return states.wordInfiltratorState;
+  if (gameId === "insider-guess") return states.insiderGuessState;
+  if (gameId === "spy-location") return states.spyLocationState;
+  if (gameId === "spectrum-meter") return states.spectrumMeterState;
+  if (gameId === "ranking-answers") return states.rankingAnswersState;
+  return states.fakeArtistState;
 }
 
 function sanitizePersistedAppState(state: PersistedAppState | null): PersistedAppState | null {
@@ -1480,38 +2034,30 @@ function sanitizePersistedAppState(state: PersistedAppState | null): PersistedAp
 }
 
 function sanitizeLoadedNumberTalkState(state: NumberTalkState | null): NumberTalkState | null {
-  if (!state) return null;
-  const next = structuredClone(state);
-  if (next.phase === "revealNumber") {
-    next.phase = "handoff";
-  }
-  if (next.phase === "confirmOrder") {
-    next.phase = "ordering";
-  }
-  return next;
+  return sanitizeReloadPhase(state, {
+    revealNumber: "handoff",
+    confirmOrder: "ordering"
+  });
 }
 
 function sanitizeLoadedWerewolfState(state: WerewolfState | null): WerewolfState | null {
-  if (!state) return null;
-  const next = structuredClone(state);
-  if (next.phase === "roleReveal") {
-    next.phase = "roleHandoff";
-  }
-  if (next.phase === "vote") {
-    next.phase = "voteHandoff";
-  }
-  const phase = next.phase as string;
-  if (phase.startsWith("night")) {
-    next.phase = "nightHandoff";
-  }
-  return next;
+  return sanitizeReloadPhase(
+    state,
+    {
+      roleReveal: "roleHandoff",
+      vote: "voteHandoff"
+    },
+    [{ prefix: "night", fallback: "nightHandoff" }]
+  );
 }
 
 function sanitizeLoadedGeoState(state: GeoState | null): GeoState | null {
   if (!state) return null;
-  const next = structuredClone(state);
-  if (next.phase === "placingPin" || next.phase === "confirmGuess") {
-    next.phase = "viewingImage";
+  const next = sanitizeReloadPhase(state, {
+    placingPin: "viewingImage",
+    confirmGuess: "viewingImage"
+  });
+  if (next && (state.phase === "placingPin" || state.phase === "confirmGuess")) {
     next.pendingGuess = undefined;
   }
   return next;
@@ -1524,4 +2070,46 @@ function sanitizeLoadedDrinkingGamesState(state: DrinkingGamesState | null): Dri
   next.country = next.country ?? "all";
   next.query = next.query ?? "";
   return next;
+}
+
+function sanitizeLoadedWordInfiltratorState(state: WordInfiltratorState | null): WordInfiltratorState | null {
+  return sanitizeReloadPhase(state, {
+    revealSecret: "handoff",
+    vote: "voteHandoff"
+  });
+}
+
+function sanitizeLoadedInsiderGuessState(state: InsiderGuessState | null): InsiderGuessState | null {
+  return sanitizeReloadPhase(state, {
+    roleReveal: "roleHandoff",
+    answerReveal: "answerHandoff",
+    vote: "voteHandoff"
+  });
+}
+
+function sanitizeLoadedSpyLocationState(state: SpyLocationState | null): SpyLocationState | null {
+  return sanitizeReloadPhase(state, {
+    revealSecret: "handoff",
+    accusationVote: "accusationVoteHandoff",
+    spyGuess: "spyGuessHandoff"
+  });
+}
+
+function sanitizeLoadedSpectrumMeterState(state: SpectrumMeterState | null): SpectrumMeterState | null {
+  return sanitizeReloadPhase(state, {
+    psychicReveal: "psychicHandoff"
+  });
+}
+
+function sanitizeLoadedRankingAnswersState(state: RankingAnswersState | null): RankingAnswersState | null {
+  return sanitizeReloadPhase(state, {
+    numberReveal: "numberHandoff"
+  });
+}
+
+function sanitizeLoadedFakeArtistState(state: FakeArtistState | null): FakeArtistState | null {
+  return sanitizeReloadPhase(state, {
+    revealSecret: "handoff",
+    vote: "voteHandoff"
+  });
 }

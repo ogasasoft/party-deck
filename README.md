@@ -7,7 +7,7 @@ GitHub: https://github.com/ogasasoft/party-deck
 
 ## 現在の状態
 
-MVPとして、1台のスマホで3ゲームを最後まで触れ、道具なし飲み会ゲーム辞典も確認できる状態です。
+MVPとして、1台のスマホで初期3ゲームと追加テーブルゲーム6本を最後まで触れ、道具なし飲み会ゲーム辞典も確認できる状態です。
 
 - 日本マップGuessr
   - Mapillaryの東京周辺サンプル100件を `public/data/geo` に投入済み
@@ -28,6 +28,36 @@ MVPとして、1台のスマホで3ゲームを最後まで触れ、道具なし
   - 国内外の定番、流行寄り、韓国系リズムゲームなどを収録
   - 国フィルタと `下ネタ` 特別フィルタを表示
   - AI/cronで後から追加しやすい重複判定キー、別名、参照元を保持
+- ワード潜入者
+  - 3から8人
+  - 多数派には秘密語、潜入者にはカテゴリだけを表示
+  - ヒント順、議論、秘密投票、潜入者の最終推理、勝敗判定まで実装済み
+  - お題はParty Deck用の独自データ
+- インサイダー推理
+  - 4から8人
+  - 進行役、内通者、市民の役職を秘密配布
+  - 答え確認、質問タイマー、内通者投票、勝敗判定まで実装済み
+  - 答えデータはParty Deck用の独自データ
+- スパイロケーション
+  - 4から8人
+  - スパイ以外には場所、スパイには場所不明を表示
+  - 質問タイマー、告発投票、スパイの場所推理、勝敗判定まで実装済み
+  - 場所データはParty Deck用の独自データ
+- 価値観メーター
+  - 2から8人
+  - 親だけが0から100の正解位置を確認
+  - ヒント入力、スライダー推測、複数ラウンド、採点まで実装済み
+  - 尺度データはParty Deck用の独自データ
+- ランキング回答
+  - 4から8人
+  - 1から10の秘密番号を1人1つ配布
+  - 回答メモ、キャプテン並び替え、5ラウンド協力判定まで実装済み
+  - お題データはParty Deck用の独自データ
+- エセアーティスト
+  - 5から8人
+  - 本物にはお題、偽物にはカテゴリだけを表示
+  - スマホ描画、2周の線描画、偽物投票、偽物の最終推理、勝敗判定まで実装済み
+  - お題データはParty Deck用の独自データ
 - 共通機能
   - プレイヤーはニックネームと担当色のみ
   - localStorageでプレイヤーとゲーム進行を保存
@@ -84,12 +114,15 @@ npm run preview
 
 ```txt
 src/
-  App.tsx                         # 画面進行の中心。今はMVP用に大きめ
+  App.tsx                         # 画面進行の中心。追加ゲーム画面はfeaturesへ分割済み
+  features/
+    AddedTableGames.tsx           # 追加テーブルゲーム6本の画面群。lazy load対象
   core/
     gameRegistry.ts               # ゲーム登録
     storage.ts                    # localStorage保存
     adPolicy.ts                   # 広告表示可否
     random.ts                     # seed/shuffle/sample
+    reloadSafety.ts               # 秘密情報phaseのリロード復帰保護
     distance.ts                   # Guessr採点用距離
     time.ts                       # タイマー補助
     types.ts                      # 共通型
@@ -100,11 +133,23 @@ src/
     numberTalk.ts                 # ナンバートーク状態と判定
     werewolf.ts                   # ワンナイト人狼状態と判定
     drinkingGames.ts              # 飲み会ゲーム辞典の検索状態
+    wordInfiltrator.ts            # ワード潜入者状態と判定
+    insiderGuess.ts               # インサイダー推理状態と判定
+    spyLocation.ts                # スパイロケーション状態と判定
+    spectrumMeter.ts              # 価値観メーター状態と判定
+    rankingAnswers.ts             # ランキング回答状態と判定
+    fakeArtist.ts                 # エセアーティスト状態と判定
   data/
     geoLocations.ts               # fallback地点
     numberTopics.ts               # ナンバートークお題
     werewolfRoles.ts              # 役職定義
     drinkingGames.ts              # 道具なし飲み会ゲーム辞典データ
+    wordInfiltratorTopics.ts      # ワード潜入者のお題
+    insiderAnswers.ts             # インサイダー推理の答え
+    spyLocations.ts               # スパイロケーションの場所
+    spectrumScales.ts             # 価値観メーターの尺度
+    rankingAnswerPrompts.ts       # ランキング回答のお題
+    fakeArtistTopics.ts           # エセアーティストのお題
 public/data/geo/
   playable-index.json             # 出題地点index
   chunks/*.json                   # Mapillary地点chunk
@@ -117,6 +162,9 @@ docs/
   system-design-units.md          # unit設計
   implementation-spec.md          # 実装仕様
   drinking-games-database.md      # 飲み会ゲーム辞典の更新ルール
+  table-game-expansion-spec.md    # パスアンドプレイ向け追加テーブルゲーム仕様
+  table-game-expansion-plan.md    # 追加テーブルゲームの実装計画
+  table-game-expansion-task-list.md # 追加テーブルゲームの詳細タスク
   task-list.md                    # 現在のタスク状態
   maintenance-guide.md            # 保守引き継ぎ
 ```
@@ -176,6 +224,7 @@ Vercel側には `VITE_MAPILLARY_ACCESS_TOKEN` を環境変数として登録済�
 
 - 個人情報、ログイン、位置情報権限を追加しない。
 - 本家ゲームの文章、画像、音声、UI、お題をコピーしない。
+- 追加テーブルゲームは `docs/table-game-expansion-plan.md` と `docs/table-game-expansion-task-list.md` の順番に沿って実装する。
 - ゲーム固有ロジックを他ゲームへ依存させない。
 - 新しいゲームは `GameDefinition` と `gameRegistry` 経由で追加する。
 - 飲み会ゲーム辞典へ追加するルール文は独自に要約し、外部サイト本文をコピーしない。
@@ -195,4 +244,5 @@ Vercel側には `VITE_MAPILLARY_ACCESS_TOKEN` を環境変数として登録済�
 - unit/integration test追加
 - 広告ネットワーク選定とSDK接続
 - 利用規約、プライバシーポリシー、Mapillary利用条件の確認
+- 追加テーブルゲーム6本の実機QAと導線調整
 - 全国Mapillary地点データ拡張

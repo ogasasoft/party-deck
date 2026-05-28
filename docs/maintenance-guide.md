@@ -46,11 +46,21 @@ MVPの画面進行の中心です。以下を持っています。
 - home / players / setup / game の大きな画面切り替え
 - プレイヤー設定
 - 各ゲーム設定
-- 各ゲーム画面
+- 初期3ゲームと飲み会ゲーム辞典の画面
 - localStorage復元と保存
 - 秘密情報画面のリロード対策
 
-今後の大きな改善点は、ここを共通画面とゲーム別画面に分割することです。ただし、分割時は既存の受け渡しとリロード保護を壊さないでください。
+追加テーブルゲーム6本の画面は `src/features/AddedTableGames.tsx` に分割済みです。今後の改善点は、秘密確認、投票、結果表示などの重複を共通componentへ寄せることです。ただし、分割時は既存の受け渡しとリロード保護を壊さないでください。
+
+### `src/features/AddedTableGames.tsx`
+
+ワード潜入者、インサイダー推理、スパイロケーション、価値観メーター、ランキング回答、エセアーティストの画面群です。`App.tsx` からlazy loadされるため、追加ゲーム側の画面を大きくしても初期bundleに入りにくい構造です。
+
+注意:
+
+- 追加ゲーム固有の判定やstate生成は `src/games/*.ts` に置く。
+- 秘密確認や投票中は `AdSlot` を出さない。
+- `App.tsx` 側の保存、復元、sanitize処理とphase名をずらさない。
 
 ### `src/core/gameRegistry.ts`
 
@@ -67,6 +77,10 @@ localStorageの読み書きを集約しています。
 - 破損JSONを読んでもアプリが落ちないようにする。
 - 秘密情報画面へ直接復帰しない方針を保つ。
 - 保存keyに `sessionId` と `gameId` を含める。
+
+### `src/core/reloadSafety.ts`
+
+秘密情報、投票、回答中などをリロードしたとき、次の受け渡し画面へ戻す共通ヘルパーです。新しいゲームで秘密phaseを追加したら、`App.tsx` のsanitize処理でこのヘルパーを使い、`scripts/smoke-test.ts` のreload safety smokeも通してください。
 
 ### `src/core/adPolicy.ts`
 
@@ -275,6 +289,7 @@ npm run validate:geo
 - `src/core/gameRegistry.ts`
 - `src/games/<new-game>.ts`
 - `src/App.tsx`
+- 必要なら `src/features/<feature>.tsx`
 
 確認:
 

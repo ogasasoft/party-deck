@@ -1,4 +1,14 @@
-export type GameId = "geo" | "number-talk" | "werewolf" | "drinking-games";
+export type GameId =
+  | "geo"
+  | "number-talk"
+  | "werewolf"
+  | "drinking-games"
+  | "word-infiltrator"
+  | "insider-guess"
+  | "spy-location"
+  | "spectrum-meter"
+  | "ranking-answers"
+  | "fake-artist";
 
 export type Player = {
   id: string;

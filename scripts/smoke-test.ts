@@ -1,15 +1,28 @@
 import assert from "node:assert/strict";
 import { distanceMeters } from "../src/core/distance";
 import { games, getGameDefinition } from "../src/core/gameRegistry";
+import { sanitizeReloadPhase } from "../src/core/reloadSafety";
 import { formatClock } from "../src/core/time";
 import { DEFAULT_PLAYERS } from "../src/core/types";
 import { drinkingGameSourceRefs, drinkingGames } from "../src/data/drinkingGames";
 import { createGeoAnswer, createGeoState, currentGeoLocation, defaultGeoConfig } from "../src/games/geoGuessr";
 import { createDrinkingGamesState, defaultDrinkingGamesConfig, filterDrinkingGames } from "../src/games/drinkingGames";
+import { fakeArtistTopics } from "../src/data/fakeArtistTopics";
+import { createFakeArtistState, currentDrawingPlayerId, defaultFakeArtistConfig, judgeFakeArtist, submitFakeArtistVote } from "../src/games/fakeArtist";
+import { insiderAnswers } from "../src/data/insiderAnswers";
+import { createInsiderGuessState, defaultInsiderGuessConfig, getInsiderRole, judgeInsiderGuess, submitInsiderGuessVote, type InsiderGuessState } from "../src/games/insiderGuess";
 import { createMapillaryImageEndpoint } from "../src/games/mapillaryProvider";
 import { numberTalkTopics } from "../src/data/numberTopics";
 import { createNumberTalkState, defaultNumberTalkConfig, isNumberOrderCorrect } from "../src/games/numberTalk";
+import { rankingAnswerPrompts } from "../src/data/rankingAnswerPrompts";
+import { computeRankingMistakes, createRankingAnswersState, currentRankingRound, defaultRankingAnswersConfig, getRankingNumberForPlayer, totalRankingMistakes, updateCurrentRankingRound } from "../src/games/rankingAnswers";
+import { spyLocations } from "../src/data/spyLocations";
+import { createSpyLocationState, defaultSpyLocationConfig, judgeSpyLocation, submitSpyLocationAccusationVote, type SpyLocationState } from "../src/games/spyLocation";
+import { spectrumScales } from "../src/data/spectrumScales";
+import { createSpectrumMeterState, currentSpectrumRound, defaultSpectrumMeterConfig, scoreSpectrumGuess, totalSpectrumScore, updateCurrentSpectrumRound } from "../src/games/spectrumMeter";
 import { applyRobberAction, applySeerAction, buildRoleSet, countRoleCards, createWerewolfState, defaultWerewolfConfig, getNightAction, judgeWerewolf, type WerewolfState, type WerewolfVote } from "../src/games/werewolf";
+import { wordInfiltratorTopics } from "../src/data/wordInfiltratorTopics";
+import { createWordInfiltratorState, defaultWordInfiltratorConfig, judgeWordInfiltrator, submitWordInfiltratorVote } from "../src/games/wordInfiltrator";
 import { assignJapanRegion, isPointInJapan } from "./geo-quality";
 
 const players = DEFAULT_PLAYERS.slice(0, 4);
@@ -17,14 +30,47 @@ const players = DEFAULT_PLAYERS.slice(0, 4);
 function smokeGameRegistry() {
   assert.deepEqual(
     games.map((game) => game.id),
-    ["geo", "number-talk", "werewolf", "drinking-games"]
+    ["geo", "number-talk", "werewolf", "drinking-games", "word-infiltrator", "insider-guess", "spy-location", "spectrum-meter", "ranking-answers", "fake-artist"]
   );
   assert.equal(getGameDefinition("geo").minPlayers, 2);
   assert.equal(getGameDefinition("number-talk").defaultConfig().numberMax, 100);
   assert.equal(countRoleCards(getGameDefinition("werewolf").defaultConfig().roleCounts), players.length + 2);
   assert.equal(getGameDefinition("drinking-games").defaultConfig().viewMode, "database");
+  assert.equal(getGameDefinition("word-infiltrator").minPlayers, 3);
+  assert.equal(getGameDefinition("insider-guess").minPlayers, 4);
+  assert.equal(getGameDefinition("spy-location").minPlayers, 4);
+  assert.equal(getGameDefinition("spectrum-meter").minPlayers, 2);
+  assert.equal(getGameDefinition("ranking-answers").minPlayers, 4);
+  assert.equal(getGameDefinition("fake-artist").minPlayers, 5);
   assert.equal(formatClock(180), "3:00");
   assert.equal(formatClock(5), "0:05");
+}
+
+function smokeReloadSafety() {
+  type DemoPhase = "safe" | "secret" | "vote" | "nightAction" | "handoff";
+  type DemoState = {
+    phase: DemoPhase;
+    nested: {
+      visible: boolean;
+    };
+  };
+  const fallbackMap = {
+    secret: "handoff",
+    vote: "handoff"
+  } satisfies Partial<Record<DemoPhase, DemoPhase>>;
+
+  const secretState: DemoState = { phase: "secret", nested: { visible: true } };
+  const sanitizedSecret = sanitizeReloadPhase(secretState, fallbackMap, [{ prefix: "night", fallback: "handoff" }]);
+  assert.equal(sanitizedSecret?.phase, "handoff");
+  assert.equal(secretState.phase, "secret");
+  sanitizedSecret!.nested.visible = false;
+  assert.equal(secretState.nested.visible, true);
+
+  const nightState: DemoState = { phase: "nightAction", nested: { visible: true } };
+  assert.equal(sanitizeReloadPhase(nightState, fallbackMap, [{ prefix: "night", fallback: "handoff" }])?.phase, "handoff");
+
+  const safeState: DemoState = { phase: "safe", nested: { visible: true } };
+  assert.equal(sanitizeReloadPhase(safeState, fallbackMap, [{ prefix: "night", fallback: "handoff" }])?.phase, "safe");
 }
 
 function smokeNumberTalk() {
@@ -145,10 +191,141 @@ function smokeDrinkingGames() {
   assert.equal(filterDrinkingGames({ ...state, query: "", country: "下ネタ" }).every((game) => game.specialCategory === "下ネタ"), true);
 }
 
+function smokeWordInfiltrator() {
+  assert.equal(wordInfiltratorTopics.length, 36);
+  assert.equal(new Set(wordInfiltratorTopics.map((topic) => topic.id)).size, wordInfiltratorTopics.length);
+  assert.equal(new Set(wordInfiltratorTopics.map((topic) => topic.secretWord)).size, wordInfiltratorTopics.length);
+
+  const state = createWordInfiltratorState(players, defaultWordInfiltratorConfig(), "smoke-word");
+  assert.equal(state.phase, "handoff");
+  assert.ok(players.some((player) => player.id === state.infiltratorPlayerId));
+  assert.equal(state.clueOrder.length, players.length);
+
+  const voters = players.filter((player) => player.id !== state.infiltratorPlayerId);
+  const votedState = voters.reduce(
+    (nextState, voter) => submitWordInfiltratorVote(nextState, { fromPlayerId: voter.id, targetPlayerId: state.infiltratorPlayerId }),
+    state
+  );
+  const caughtResult = judgeWordInfiltrator({ ...votedState, infiltratorGuess: "ぜんぜん違う" });
+  assert.equal(caughtResult.caught, true);
+  assert.equal(caughtResult.winningTeam, "majority");
+
+  const guessedResult = judgeWordInfiltrator({ ...votedState, infiltratorGuess: state.topic.secretWord });
+  assert.equal(guessedResult.guessCorrect, true);
+  assert.equal(guessedResult.winningTeam, "infiltrator");
+}
+
+function smokeInsiderGuess() {
+  assert.equal(insiderAnswers.length, 30);
+  assert.equal(new Set(insiderAnswers.map((answer) => answer.id)).size, insiderAnswers.length);
+  assert.equal(new Set(insiderAnswers.map((answer) => answer.text)).size, insiderAnswers.length);
+
+  const state = createInsiderGuessState(players, defaultInsiderGuessConfig(), "smoke-insider");
+  assert.equal(state.phase, "roleHandoff");
+  assert.ok(players.some((player) => player.id === state.masterPlayerId));
+  assert.ok(players.some((player) => player.id === state.insiderPlayerId));
+  assert.notEqual(state.masterPlayerId, state.insiderPlayerId);
+  assert.equal(getInsiderRole(state, state.masterPlayerId), "master");
+  assert.equal(getInsiderRole(state, state.insiderPlayerId), "insider");
+
+  const initialVoteState: InsiderGuessState = { ...state, guessedCorrectly: true };
+  const votedState = players.reduce(
+    (nextState, voter) => submitInsiderGuessVote(nextState, { fromPlayerId: voter.id, targetPlayerId: state.insiderPlayerId }),
+    initialVoteState
+  );
+  const citizenWin = judgeInsiderGuess(votedState);
+  assert.equal(citizenWin.winningTeam, "citizens");
+
+  const failed = judgeInsiderGuess({ ...state, guessedCorrectly: false });
+  assert.equal(failed.winningTeam, "failed");
+}
+
+function smokeSpyLocation() {
+  assert.equal(spyLocations.length, 30);
+  assert.equal(new Set(spyLocations.map((location) => location.id)).size, spyLocations.length);
+  assert.equal(new Set(spyLocations.map((location) => location.name)).size, spyLocations.length);
+
+  const state = createSpyLocationState(players, defaultSpyLocationConfig(), "smoke-spy");
+  assert.equal(state.phase, "handoff");
+  assert.ok(players.some((player) => player.id === state.spyPlayerId));
+
+  const initialAccusationState: SpyLocationState = { ...state, accusedPlayerId: state.spyPlayerId };
+  const accusationState = players.reduce(
+    (nextState, voter) => submitSpyLocationAccusationVote(nextState, { fromPlayerId: voter.id, agrees: true }),
+    initialAccusationState
+  );
+  const localWin = judgeSpyLocation(accusationState, players.length);
+  assert.equal(localWin.winningTeam, "locals");
+
+  const spyWin = judgeSpyLocation({ ...state, spyGuessLocationId: state.location.id }, players.length);
+  assert.equal(spyWin.winningTeam, "spy");
+}
+
+function smokeSpectrumMeter() {
+  assert.equal(spectrumScales.length, 25);
+  assert.equal(new Set(spectrumScales.map((scale) => scale.id)).size, spectrumScales.length);
+  assert.equal(scoreSpectrumGuess(50, 50), 4);
+  assert.equal(scoreSpectrumGuess(50, 80), 0);
+
+  const state = createSpectrumMeterState(players, defaultSpectrumMeterConfig(), "smoke-spectrum");
+  assert.equal(state.phase, "psychicHandoff");
+  assert.equal(state.rounds.length, 3);
+  const round = currentSpectrumRound(state);
+  assert.ok(round.targetValue >= 0 && round.targetValue <= 100);
+  const scored = updateCurrentSpectrumRound(state, { guessValue: round.targetValue, score: scoreSpectrumGuess(round.targetValue, round.targetValue) });
+  assert.equal(totalSpectrumScore(scored), 4);
+}
+
+function smokeRankingAnswers() {
+  assert.equal(rankingAnswerPrompts.length, 25);
+  assert.equal(new Set(rankingAnswerPrompts.map((prompt) => prompt.id)).size, rankingAnswerPrompts.length);
+
+  const state = createRankingAnswersState(players, defaultRankingAnswersConfig(), "smoke-ranking");
+  assert.equal(state.phase, "numberHandoff");
+  assert.equal(state.rounds.length, 5);
+  const round = currentRankingRound(state);
+  assert.equal(round.assignments.length, players.length);
+  assert.ok(players.every((player) => getRankingNumberForPlayer(state, player.id) >= 1));
+  const correctOrder = [...round.assignments].sort((a, b) => a.number - b.number).map((assignment) => assignment.playerId);
+  const scored = updateCurrentRankingRound(state, {
+    captainOrder: correctOrder,
+    mistakeCount: computeRankingMistakes({ ...round, captainOrder: correctOrder })
+  });
+  assert.equal(currentRankingRound(scored).mistakeCount, 0);
+  assert.equal(totalRankingMistakes(scored), 0);
+}
+
+function smokeFakeArtist() {
+  const fakePlayers = DEFAULT_PLAYERS.concat({ id: "p5", nickname: "ソラ", color: "#e76f51" });
+  assert.equal(fakeArtistTopics.length, 30);
+  assert.equal(new Set(fakeArtistTopics.map((topic) => topic.id)).size, fakeArtistTopics.length);
+  assert.equal(new Set(fakeArtistTopics.map((topic) => topic.text)).size, fakeArtistTopics.length);
+
+  const state = createFakeArtistState(fakePlayers, defaultFakeArtistConfig(), "smoke-fake");
+  assert.equal(state.phase, "handoff");
+  assert.equal(state.drawOrder.length, fakePlayers.length * 2);
+  assert.ok(fakePlayers.some((player) => player.id === state.fakeArtistPlayerId));
+  assert.ok(currentDrawingPlayerId(state));
+
+  const votedState = fakePlayers
+    .filter((player) => player.id !== state.fakeArtistPlayerId)
+    .reduce((nextState, voter) => submitFakeArtistVote(nextState, { fromPlayerId: voter.id, targetPlayerId: state.fakeArtistPlayerId }), state);
+  const result = judgeFakeArtist({ ...votedState, fakeGuess: "違う" });
+  assert.equal(result.caught, true);
+  assert.equal(result.winningTeam, "artists");
+}
+
 smokeGameRegistry();
+smokeReloadSafety();
 smokeNumberTalk();
 smokeWerewolf();
 smokeGeoGuessr();
 smokeDrinkingGames();
+smokeWordInfiltrator();
+smokeInsiderGuess();
+smokeSpyLocation();
+smokeSpectrumMeter();
+smokeRankingAnswers();
+smokeFakeArtist();
 
 console.log("smoke ok");

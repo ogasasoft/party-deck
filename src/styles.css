@@ -285,7 +285,8 @@ h1 {
 }
 
 .player-row,
-.result-row {
+.result-row,
+.answer-row {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
@@ -295,6 +296,27 @@ h1 {
 .player-row input {
   width: 100%;
   min-height: 42px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  padding: 0 10px;
+}
+
+.answer-list {
+  display: grid;
+  gap: 8px;
+}
+
+.answer-row {
+  grid-template-columns: auto minmax(76px, 0.5fr) minmax(0, 1fr);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+}
+
+.answer-row input {
+  width: 100%;
+  min-height: 40px;
   border-radius: 8px;
   border: 1px solid var(--line);
   padding: 0 10px;
@@ -492,6 +514,89 @@ h1 {
   padding: 12px;
 }
 
+.meter-card,
+.range-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 14px;
+}
+
+.meter-labels,
+.meter-values {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 950;
+}
+
+.meter-values {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.meter-track {
+  height: 24px;
+  position: relative;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2e67b1, #f0b429, #d64545);
+  border: 1px solid rgba(0, 0, 0, 0.16);
+}
+
+.meter-marker {
+  width: 16px;
+  height: 34px;
+  position: absolute;
+  top: 50%;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  border: 2px solid #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+}
+
+.meter-marker.target {
+  background: var(--ink);
+}
+
+.meter-marker.guess {
+  background: var(--teal);
+}
+
+.range-card input {
+  width: 100%;
+}
+
+.range-card strong {
+  text-align: center;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.drawing-card {
+  display: grid;
+  gap: 12px;
+}
+
+.drawing-board {
+  width: 100%;
+  aspect-ratio: 1;
+  display: block;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background:
+    linear-gradient(#fff 0 0) padding-box,
+    repeating-linear-gradient(0deg, rgba(23, 23, 23, 0.06) 0 1px, transparent 1px 12px),
+    repeating-linear-gradient(90deg, rgba(23, 23, 23, 0.06) 0 1px, transparent 1px 12px);
+  touch-action: none;
+}
+
+.compact-drawing {
+  aspect-ratio: 4 / 3;
+}
+
 .notice {
   padding: 12px;
   color: #8f3a2d;
@@ -675,13 +780,42 @@ h1 {
 }
 
 .number-card,
-.role-card {
+.role-card,
+.secret-card {
   min-height: 280px;
   display: grid;
   place-items: center;
   gap: 12px;
   padding: 20px;
   text-align: center;
+}
+
+.secret-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.secret-card.danger {
+  background: #fff3ee;
+  border-color: rgba(214, 69, 69, 0.28);
+}
+
+.secret-card.muted-card {
+  background: #f7f2ea;
+}
+
+.secret-card h2 {
+  font-size: clamp(34px, 12vw, 56px);
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+.secret-card p {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.55;
 }
 
 .number-card strong {
@@ -742,6 +876,10 @@ h1 {
   align-items: center;
   gap: 8px;
   padding: 8px;
+}
+
+.simple-order-item {
+  grid-template-columns: auto auto 1fr;
 }
 
 .small-button {

@@ -16,9 +16,9 @@
 - プレイヤー情報はニックネームと担当色のみ。
 - 1台のスマホを順番に受け渡して遊ぶ。
 - 最大8人。
-- 初期ゲームは日本マップGuessr、ナンバートーク、ワンナイト人狼、飲み会ゲーム辞典。
+- 初期ゲームは日本マップGuessr、ナンバートーク、ワンナイト人狼、飲み会ゲーム辞典、ワード潜入者、インサイダー推理、スパイロケーション、価値観メーター、ランキング回答、エセアーティスト。
 - 収益化は広告想定だが、秘密情報や回答操作を邪魔しないことを優先する。
-- 本家ゲームの文章、画像、音声、UI、お題リストをコピーしない。ルール構造の参考に留める。
+- 本家系ゲームの進行、役職構成、勝敗条件、採点方法はできるだけ準拠して再現する。文章、画像、音声、UIデザイン、お題リスト、カード文面は許諾やライセンス確認なしに転載しない。
 
 ## 重要ドキュメント
 
@@ -29,6 +29,9 @@
 - `docs/system-design-units.md`: unit境界と依存ルール。
 - `docs/implementation-spec.md`: 実装仕様。
 - `docs/drinking-games-database.md`: 飲み会ゲーム辞典の追加、重複判定、AI更新ルール。
+- `docs/table-game-expansion-spec.md`: 追加テーブルゲームの原典調査と実装たたき台。
+- `docs/table-game-expansion-plan.md`: 追加テーブルゲームの実装順、共通方針、完了条件。
+- `docs/table-game-expansion-task-list.md`: 追加テーブルゲームの詳細作業チェックリスト。
 - `docs/mapillary-integration-notes.md`: Mapillary連携方針と収集結果。
 - `docs/later-checklist.md`: 後回しタスク、全国データ拡張時の確認項目。
 
@@ -54,10 +57,12 @@ npm run validate:geo
 
 ```txt
 src/App.tsx                    # MVPの画面進行の中心
+src/features/AddedTableGames.tsx # 追加テーブルゲーム6本の画面群
 src/core/gameRegistry.ts       # ゲーム登録
 src/core/types.ts              # 共通型とGameId
 src/core/storage.ts            # localStorage保存
 src/core/adPolicy.ts           # 広告表示ルール
+src/core/reloadSafety.ts       # 秘密情報phaseのリロード復帰保護
 src/games/geoGuessr.ts         # Guessr状態、回答、採点
 src/games/geoLocationRepository.ts
 src/games/mapillaryProvider.ts
@@ -71,7 +76,7 @@ public/data/geo/               # 本番出題地点データ
 scripts/                       # 収集、検証、smoke
 ```
 
-`App.tsx` はまだMVP用に大きいです。分割する場合は、まず現在の進行フローを保ったまま、ゲームごとの画面を独立コンポーネントへ移してください。
+`App.tsx` はまだMVP用に大きいですが、追加テーブルゲーム6本の画面は `src/features/AddedTableGames.tsx` に分割済みです。さらに分割する場合は、現在の進行フロー、受け渡し、リロード保護を保ったまま移してください。
 
 ## ゲーム追加ルール
 
