@@ -107,6 +107,7 @@ npm run build
 npm run preview
 npm run test
 npm run audit:geo-images
+npm run audit:production
 npm run audit:storage
 npm run geo:qa -- --id <location-id> --status rejected --dry-run
 ```
@@ -170,6 +171,7 @@ scripts/
   smoke-test.ts                   # ロジックsmoke
 docs/
   user-stories.md                 # 仕様の元
+  device-qa-checklist.md          # iPhone/Android/低速回線/AdSense実機QA手順
   system-design-units.md          # unit設計
   implementation-spec.md          # 実装仕様
   drinking-games-database.md      # 飲み会ゲーム辞典の更新ルール
@@ -270,6 +272,6 @@ Vercel側には `VITE_MAPILLARY_ACCESS_TOKEN` を環境変数として登録済�
 
 - iPhone Safari / Android Chromeの実機QA
 - 実機の低速回線でのGuessr画像ロード、リトライ、代替地点切替確認
-- ブラウザ操作を含むintegration test追加
+- ブラウザ操作を含む深いintegration test追加
 - AdSense本番有効化用のpublisher client id、slot id、必要地域の同意管理
 - 追加テーブルゲーム6本のiPhone Safari / Android Chrome戻る操作QA

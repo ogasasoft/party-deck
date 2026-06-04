@@ -25,6 +25,7 @@
 - `README.md`: 人間向けの入口、セットアップ、現状。
 - `docs/maintenance-guide.md`: 保守引き継ぎ、変更手順、QA。
 - `docs/task-list.md`: 現在のタスク状態。実装後は必要に応じて更新する。
+- `docs/device-qa-checklist.md`: iPhone Safari / Android Chrome / 低速回線 / AdSense有効化後の実機QA手順。
 - `docs/user-stories.md`: 仕様判断の最上位。
 - `docs/system-design-units.md`: unit境界と依存ルール。
 - `docs/implementation-spec.md`: 実装仕様。
@@ -49,6 +50,7 @@ npm run typecheck
 npm run build
 npm run validate:geo
 npm run audit:geo-images
+npm run audit:production
 npm run audit:storage
 npm run geo:qa -- --id <location-id> --status rejected --dry-run
 ```

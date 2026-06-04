@@ -39,13 +39,14 @@
 - 秘密情報phaseのリロード復帰保護を共通ヘルパー化し、smokeで検証
 - unit test基盤を追加し、保存、game registry、広告、リロード保護、主要ゲーム判定を検証
 - プライバシーポリシー、利用規約、広告/法務整理docsを追加
+- 本番URL監査 `npm run audit:production` と実機QAチェックシートを追加
 
 まだリリース未満の理由:
 
 - iPhone Safari / Android Chromeの実機QAが未完了
 - Guessr画像失敗時UXの実機低速回線QAが未完了
 - AdSense本番有効化にはpublisher client id、slot id、必要地域の同意管理が未設定
-- integration testはまだ薄い
+- 実機操作を伴うintegration testはまだ薄い
 
 ## P0 土台
 
@@ -249,8 +250,8 @@
 
 最優先は、公開済みMVPを友人に実機で遊んでもらう前に、実機固有の秘密漏れ、押しづらさ、画像遅延を確認すること。
 
-1. P8-01、P8-02、P8-05でiPhone Safari / Android Chrome / 低速回線の実機QAを行う
-2. `docs/table-game-expansion-task-list.md` のTGE-9-04、TGE-9-05で追加ゲーム6本の実機戻る操作QAを行う
+1. `docs/device-qa-checklist.md` に沿って、P8-01、P8-02、P8-05でiPhone Safari / Android Chrome / 低速回線の実機QAを行う
+2. `docs/device-qa-checklist.md` に沿って、TGE-9-04、TGE-9-05で追加ゲーム6本の実機戻る操作QAを行う
 3. P3-04で初期3ゲーム側も含めた追加の画面分割、共通component化を進める
 4. P4-10でブラウザ操作を含むintegration testを追加する
 5. AdSenseのpublisher client id、slot id、必要地域の同意管理を本番設定する
