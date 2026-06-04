@@ -101,6 +101,8 @@ npm run smoke
 npm run typecheck
 npm run build
 npm run preview
+npm run audit:geo-images
+npm run geo:qa -- --id <location-id> --status rejected --dry-run
 ```
 
 推奨確認順:
@@ -117,6 +119,9 @@ src/
   App.tsx                         # 画面進行の中心。追加ゲーム画面はfeaturesへ分割済み
   features/
     AddedTableGames.tsx           # 追加テーブルゲーム6本の画面群。lazy load対象
+  components/
+    CountdownTimer.tsx            # 共通タイマー
+    PartyScreens.tsx              # Topbar、受け渡し、結果アクション、広告枠などの共通UI
   core/
     gameRegistry.ts               # ゲーム登録
     storage.ts                    # localStorage保存
@@ -165,6 +170,8 @@ docs/
   table-game-expansion-spec.md    # パスアンドプレイ向け追加テーブルゲーム仕様
   table-game-expansion-plan.md    # 追加テーブルゲームの実装計画
   table-game-expansion-task-list.md # 追加テーブルゲームの詳細タスク
+  original-flow-alignment-plan.md # UI・本家フロー準拠改善計画
+  frontend-flow-polish-plan.md    # 友人プレイテスト前のUI・ゲームフロー磨き計画
   task-list.md                    # 現在のタスク状態
   maintenance-guide.md            # 保守引き継ぎ
 ```
@@ -181,6 +188,8 @@ AIエージェントで作業する場合は、まず [`AGENTS.md`](./AGENTS.md)
 2. [`docs/system-design-units.md`](./docs/system-design-units.md)
 3. [`docs/implementation-spec.md`](./docs/implementation-spec.md)
 4. [`docs/task-list.md`](./docs/task-list.md)
+5. [`docs/original-flow-alignment-plan.md`](./docs/original-flow-alignment-plan.md)
+6. [`docs/frontend-flow-polish-plan.md`](./docs/frontend-flow-polish-plan.md)
 
 ## Mapillaryデータ収集
 
@@ -202,7 +211,20 @@ MAPILLARY_ACCESS_TOKEN=... npm run collect:mapillary
 
 ```sh
 npm run validate:geo
+npm run audit:geo-images
 ```
+
+`audit:geo-images` はMapillary画像URLを実際に取得し、表示に必要な画像URLと座標が返るかを確認します。結果は `data-generated/mapillary/image-audit-report.json` に出力されます。
+
+問題画像の除外:
+
+```sh
+npm run geo:qa -- --id 1426328765487442 --status rejected --dry-run
+npm run geo:qa -- --id 1426328765487442 --status rejected
+npm run validate:geo
+```
+
+`geo:qa` は該当chunkの `qaStatus` を更新し、`public/data/geo/playable-index.json` を再構築します。`rejected` の地点は出題候補から外れます。
 
 収集結果の投入先:
 
@@ -239,10 +261,9 @@ Vercel側には `VITE_MAPILLARY_ACCESS_TOKEN` を環境変数として登録済�
 詳しくは [`docs/task-list.md`](./docs/task-list.md) を参照してください。
 
 - iPhone Safari / Android Chromeの実機QA
-- 低速回線でのGuessr画像表示確認
-- Guessr画像失敗時のリトライ/代替地点UX強化
+- 実機の低速回線でのGuessr画像ロード、リトライ、代替地点切替確認
 - unit/integration test追加
 - 広告ネットワーク選定とSDK接続
 - 利用規約、プライバシーポリシー、Mapillary利用条件の確認
-- 追加テーブルゲーム6本の実機QAと導線調整
+- 追加テーブルゲーム6本のiPhone Safari / Android Chrome戻る操作QA
 - 全国Mapillary地点データ拡張

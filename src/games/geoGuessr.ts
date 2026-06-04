@@ -83,6 +83,16 @@ export function currentGeoLocation(state: GeoState) {
   return state.roundLocations[state.currentRoundIndex] ?? state.roundLocations[0];
 }
 
+export function replaceCurrentGeoLocation(state: GeoState, location: GeoLocation): GeoState {
+  const roundLocations = [...state.roundLocations];
+  roundLocations[state.currentRoundIndex] = location;
+  return {
+    ...state,
+    roundLocations,
+    pendingGuess: undefined
+  };
+}
+
 export function createGeoAnswer(state: GeoState, playerId: string, guess: { lat: number; lng: number }): GeoAnswer {
   const location = currentGeoLocation(state);
   const meters = distanceMeters({ lat: location.lat, lng: location.lng }, guess);

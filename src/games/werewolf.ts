@@ -9,12 +9,14 @@ export type RoleCounts = Record<RoleId, number>;
 export type RoleDefinition = {
   roleId: RoleId;
   name: string;
-  icon: string;
   team: "human" | "werewolf" | "variable";
   nightOrder: number | null;
   description: string;
   actionSummary: string;
   detail: string;
+  nightAction: string;
+  discussionHint: string;
+  winConditionHint: string;
 };
 
 export type WerewolfConfig = {

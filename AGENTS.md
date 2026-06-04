@@ -32,6 +32,8 @@
 - `docs/table-game-expansion-spec.md`: 追加テーブルゲームの原典調査と実装たたき台。
 - `docs/table-game-expansion-plan.md`: 追加テーブルゲームの実装順、共通方針、完了条件。
 - `docs/table-game-expansion-task-list.md`: 追加テーブルゲームの詳細作業チェックリスト。
+- `docs/original-flow-alignment-plan.md`: UI・本家フロー準拠改善計画。秘密漏れ、答え漏れ、参考元フロー差分を直すときに読む。
+- `docs/frontend-flow-polish-plan.md`: 友人プレイテスト前のUI・ゲームフロー磨き計画。実機QA、画面状態、共通UI整理の次順を読む。
 - `docs/mapillary-integration-notes.md`: Mapillary連携方針と収集結果。
 - `docs/later-checklist.md`: 後回しタスク、全国データ拡張時の確認項目。
 
@@ -44,6 +46,8 @@ npm run smoke
 npm run typecheck
 npm run build
 npm run validate:geo
+npm run audit:geo-images
+npm run geo:qa -- --id <location-id> --status rejected --dry-run
 ```
 
 変更後の基本確認:
@@ -58,6 +62,7 @@ npm run validate:geo
 ```txt
 src/App.tsx                    # MVPの画面進行の中心
 src/features/AddedTableGames.tsx # 追加テーブルゲーム6本の画面群
+src/components/PartyScreens.tsx # Topbar、受け渡し、結果アクション、広告枠などの共通UI
 src/core/gameRegistry.ts       # ゲーム登録
 src/core/types.ts              # 共通型とGameId
 src/core/storage.ts            # localStorage保存
@@ -124,6 +129,8 @@ scripts/                       # 収集、検証、smoke
 - `data-generated/` は生成途中の作業ディレクトリでgit管理外。
 - Mapillary画像は `src/games/mapillaryProvider.ts` でアプリ内部型へ変換する。UIからMapillaryの生responseに直接依存しない。
 - attributionリンクを消さない。
+- 友人テスト前は `npm run audit:geo-images` でMapillary画像の実取得成功率を確認する。
+- 問題画像を見つけたら `npm run geo:qa -- --id <location-id> --status rejected --dry-run` で確認し、問題なければ `--dry-run` なしで反映する。`playable-index.json` はスクリプトが再構築する。
 
 ## リリース前チェック
 

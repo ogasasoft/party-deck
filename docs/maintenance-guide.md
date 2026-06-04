@@ -19,7 +19,7 @@
 未完了、または強化余地があるもの:
 
 - 実機のiPhone Safari / Android Chrome QA。
-- Guessr画像失敗時のリトライ、代替地点切替UX。
+- Guessr画像失敗時UXの実機低速回線QA。
 - unit / integration test環境。
 - 広告SDK接続。
 - 利用規約、プライバシーポリシー、Mapillary利用条件の最終確認。
@@ -50,7 +50,7 @@ MVPの画面進行の中心です。以下を持っています。
 - localStorage復元と保存
 - 秘密情報画面のリロード対策
 
-追加テーブルゲーム6本の画面は `src/features/AddedTableGames.tsx` に分割済みです。今後の改善点は、秘密確認、投票、結果表示などの重複を共通componentへ寄せることです。ただし、分割時は既存の受け渡しとリロード保護を壊さないでください。
+追加テーブルゲーム6本の画面は `src/features/AddedTableGames.tsx` に分割済みです。Topbar、受け渡し、プレイヤー順、結果アクション、広告枠などの共通UIは `src/components/PartyScreens.tsx` に寄せています。さらに分割する場合も、既存の受け渡しとリロード保護を壊さないでください。
 
 ### `src/features/AddedTableGames.tsx`
 
@@ -60,6 +60,7 @@ MVPの画面進行の中心です。以下を持っています。
 
 - 追加ゲーム固有の判定やstate生成は `src/games/*.ts` に置く。
 - 秘密確認や投票中は `AdSlot` を出さない。
+- 秘密投票中は戻るボタンを出さず、受け渡しから投票へ一方向に進める。
 - `App.tsx` 側の保存、復元、sanitize処理とphase名をずらさない。
 
 ### `src/core/gameRegistry.ts`
@@ -140,8 +141,9 @@ Mapillary Graph APIのresponseをアプリ内部型 `StreetImage` に変換し�
 
 次に強化するなら:
 
-- 画像取得失敗時の「同じラウンドで代替地点へ切替」。
-- 低速回線向けの画像ロード表示。
+- 画像取得失敗時の「同じラウンドで代替地点へ切替」は初回回答前のみ可能。
+- 回答済みプレイヤーがいる場合は地点を変えず、同じ地点で再試行する。
+- 低速回線で画像ロード表示と代替地点導線が分かりやすいか実機確認する。
 - 地点QAフラグ `approved/rejected` の運用。
 
 ### ナンバートーク
@@ -151,7 +153,7 @@ Mapillary Graph APIのresponseをアプリ内部型 `StreetImage` に変換し�
 - 数字は1から100固定。
 - 手札は1人1枚。
 - お題文はオリジナル。
-- 並び順公開前に確認操作を挟む。
+- 並び順公開前の確認操作は挟まず、並び順から結果へ直接進む。
 
 重要ファイル:
 
@@ -231,6 +233,7 @@ MAPILLARY_ACCESS_TOKEN=... npm run collect:mapillary
 
 ```sh
 npm run validate:geo
+npm run audit:geo-images
 ```
 
 検証後に確認すること:
@@ -241,16 +244,33 @@ npm run validate:geo
 - sequence偏り。
 - 画像表示失敗率。
 
+`audit:geo-images` はMapillary Graph APIから画像メタデータを実取得し、画像URLと座標が揃っているか確認します。結果は `data-generated/mapillary/image-audit-report.json` に出力されます。
+
+2026-06-04の友人テスト前確認では、東京サンプル100件を監査して100件ready、失敗0件でした。実機の低速回線では、画像ロード表示、リトライ、初回回答前の代替地点切替が分かりやすいかを追加確認してください。
+
+### 地点を手動QAで除外する
+
+問題画像、削除済み画像、暗すぎる画像、答えが写り込みすぎる画像を見つけたら、地点IDを指定して `qaStatus` を更新します。
+
+```sh
+npm run geo:qa -- --id 1426328765487442 --status rejected --dry-run
+npm run geo:qa -- --id 1426328765487442 --status rejected
+npm run validate:geo
+```
+
+`geo:qa` は該当chunkを書き換えたあと、`public/data/geo/playable-index.json` を再構築します。`rejected` または `enabled=false` の地点は出題候補から外れます。複数地点は `--id id1,id2` または `--id id1 --id id2` でまとめて更新できます。
+
 ## 変更時の基本手順
 
 1. `git status --short --branch` で作業前状態を確認する。
 2. `docs/task-list.md` で関連タスクを確認する。
-3. 仕様が曖昧なら `docs/user-stories.md` と `docs/implementation-spec.md` を先に更新する。
-4. 実装する。
-5. `npm run smoke`、`npm run typecheck`、`npm run build` を通す。
-6. UI変更がある場合はブラウザでスマホ幅を確認する。
-7. 関連docsを更新する。
-8. `git diff` で秘密情報や不要ファイルが入っていないか確認する。
+3. UI/ゲームフロー改善なら `docs/original-flow-alignment-plan.md` と `docs/frontend-flow-polish-plan.md` で優先順位、秘密保護、友人プレイテスト前の確認観点を確認する。
+4. 仕様が曖昧なら `docs/user-stories.md` と `docs/implementation-spec.md` を先に更新する。
+5. 実装する。
+6. `npm run smoke`、`npm run typecheck`、`npm run build` を通す。
+7. UI変更がある場合はブラウザでスマホ幅を確認する。
+8. 関連docsを更新する。
+9. `git diff` で秘密情報や不要ファイルが入っていないか確認する。
 
 ## よくある変更
 

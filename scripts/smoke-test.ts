@@ -5,7 +5,8 @@ import { sanitizeReloadPhase } from "../src/core/reloadSafety";
 import { formatClock } from "../src/core/time";
 import { DEFAULT_PLAYERS } from "../src/core/types";
 import { drinkingGameSourceRefs, drinkingGames } from "../src/data/drinkingGames";
-import { createGeoAnswer, createGeoState, currentGeoLocation, defaultGeoConfig } from "../src/games/geoGuessr";
+import { fallbackGeoLocations } from "../src/data/geoLocations";
+import { createGeoAnswer, createGeoState, currentGeoLocation, defaultGeoConfig, replaceCurrentGeoLocation } from "../src/games/geoGuessr";
 import { createDrinkingGamesState, defaultDrinkingGamesConfig, filterDrinkingGames } from "../src/games/drinkingGames";
 import { fakeArtistTopics } from "../src/data/fakeArtistTopics";
 import { createFakeArtistState, currentDrawingPlayerId, defaultFakeArtistConfig, judgeFakeArtist, submitFakeArtistVote } from "../src/games/fakeArtist";
@@ -151,6 +152,9 @@ function smokeGeoGuessr() {
   const answer = createGeoAnswer(state, players[0].id, { lat: location.lat, lng: location.lng });
   assert.equal(answer.distanceMeters, 0);
   assert.equal(answer.score, 5000);
+  const replacedState = replaceCurrentGeoLocation(state, fallbackGeoLocations[1]);
+  assert.equal(currentGeoLocation(replacedState).id, fallbackGeoLocations[1].id);
+  assert.equal(replacedState.pendingGuess, undefined);
 
   const tokyoToKyoto = distanceMeters({ lat: 35.681236, lng: 139.767125 }, { lat: 35.011636, lng: 135.768029 });
   assert.ok(tokyoToKyoto > 300_000);

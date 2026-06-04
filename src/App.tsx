@@ -2,7 +2,7 @@ import L from "leaflet";
 import type * as React from "react";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { CountdownTimer } from "./components/CountdownTimer";
-import { canShowAds } from "./core/adPolicy";
+import { AdSlot, FinalResultActions, PassDevice, PlayerOrder, PlayerStrip, Topbar } from "./components/PartyScreens";
 import { games, getGameDefinition } from "./core/gameRegistry";
 import { createSeed } from "./core/random";
 import { sanitizeReloadPhase } from "./core/reloadSafety";
@@ -24,7 +24,9 @@ import {
   defaultGeoConfig,
   GeoAnswer,
   GeoConfig,
+  GeoLocation,
   GeoState,
+  replaceCurrentGeoLocation,
   roundAnswers,
   totalGeoScore
 } from "./games/geoGuessr";
@@ -69,6 +71,7 @@ import {
   type WordInfiltratorState
 } from "./games/wordInfiltrator";
 import { loadMapillaryStreetImage, type StreetImageLoadResult } from "./games/mapillaryProvider";
+import { loadPlayableGeoLocations } from "./games/geoLocationRepository";
 import { InsiderAnswerCategory, insiderAnswers } from "./data/insiderAnswers";
 import {
   defaultInsiderGuessConfig,
@@ -553,26 +556,6 @@ function isAddedTableGame(gameId: GameId): gameId is (typeof addedTableGameIds)[
   return addedTableGameIds.includes(gameId as (typeof addedTableGameIds)[number]);
 }
 
-function Topbar(props: { title: string; eyebrow?: string; onBack?: () => void; right?: React.ReactNode }) {
-  return (
-    <header className={`topbar ${props.onBack ? "has-back" : ""}`}>
-      {props.onBack && (
-        <button className="icon-button back-button" type="button" onClick={props.onBack} aria-label="戻る">
-          ‹
-        </button>
-      )}
-      <div className="brand">
-        <div className="mark" aria-hidden="true" />
-        <div>
-          <div className="eyebrow">{props.eyebrow ?? "Party Deck"}</div>
-          <h1>{props.title}</h1>
-        </div>
-      </div>
-      <div className="topbar-right">{props.right}</div>
-    </header>
-  );
-}
-
 function HomeScreen(props: { onPlayers: () => void; onSelect: (gameId: GameId) => void }) {
   return (
     <section className="screen">
@@ -709,7 +692,7 @@ function SetupScreen(props: {
             <RuleDetails
               title="ルール"
               summary="全員が同じ日本の地点画像を見て、地図にピンを刺します。"
-              details={["1問で勝負します。", "地点移動はなしですが、画像は左右に動かして見られます。", "全員の回答後、正解地点と距離、点数を表示します。"]}
+              details={["1問で勝負します。", "地点移動はありません。画像は左右に少しずらして確認できます。", "全員の回答後、正解地点と距離、点数を表示します。"]}
             />
             <SettingRow title="時間" detail="1人ごとの回答時間">
               <Segmented
@@ -911,7 +894,7 @@ function SetupScreen(props: {
               details={[
                 "数字は1から10で、1人1つずつ秘密に確認します。",
                 "全員が数字の強さに合う回答を言い、キャプテンだけが順番を並べます。",
-                "公開した数字が前より小さくなった回数がミスです。5回以内なら成功です。"
+                "公開した数字が前より小さくなったらミスです。トークンが0になる前に5ラウンド遊び切れば成功です。"
               ]}
             />
             <SettingRow title="お題" detail="カテゴリを選択">
@@ -971,7 +954,7 @@ function NumberTalkGame(props: {
     const number = getNumberForPlayer(props.state, currentPlayer.id);
     return (
       <section className="screen">
-        <Topbar title="数字確認" eyebrow="ナンバートーク" onBack={() => props.setState({ ...props.state, phase: "handoff" })} />
+        <Topbar title="数字確認" eyebrow="ナンバートーク" />
         <div className="content">
           <div className="topic">{props.state.topic.text}</div>
           <div className="number-card">
@@ -1049,24 +1032,39 @@ function NumberTalkGame(props: {
   }
 
   const success = isNumberOrderCorrect(props.state);
+  const numberResultRows = getNumberResultRows(props.state, props.players);
+  const correctOrderCopy = numberResultRows
+    .slice()
+    .sort((a, b) => a.number - b.number)
+    .map((item) => `${item.player.nickname}(${item.number})`)
+    .join(" → ");
+  const firstMistake = numberResultRows.find((item) => item.breaksOrder);
   return (
     <section className="screen">
       <Topbar title="結果" eyebrow="ナンバートーク" />
       <div className="content">
         <div className="topic">{success ? "成功" : "失敗"}</div>
+        <p className="muted">{success ? "小さい順に並んでいました。" : `${firstMistake?.player.nickname ?? "途中"}で前の数字より小さくなっています。`}</p>
         <div className="result-list">
-          {props.state.order.map((playerId) => {
-            const player = props.players.find((item) => item.id === playerId);
-            if (!player) return null;
+          {numberResultRows.map(({ player, number, breaksOrder }) => {
             return (
-              <div key={player.id} className="result-row">
+              <div key={player.id} className={`result-row ${breaksOrder ? "result-row-alert" : ""}`}>
                 <span className="dot" style={{ "--chip-color": player.color } as React.CSSProperties} />
                 <strong>{player.nickname}</strong>
-                <span className="score">{getNumberForPlayer(props.state, player.id)}</span>
+                <span className="score">
+                  {breaksOrder && <small className="status-badge">ここで逆転</small>}
+                  {number}
+                </span>
               </div>
             );
           })}
         </div>
+        {!success && (
+          <div className="note">
+            <strong>正しい順</strong>
+            <span>{correctOrderCopy}</span>
+          </div>
+        )}
         <AdSlot context="result" />
         <FinalResultActions onRestart={props.onRestart} onHome={props.onHome} />
       </div>
@@ -1081,8 +1079,29 @@ function GeoGame(props: {
   onHome: () => void;
   onRestart: () => void | Promise<void>;
 }) {
+  const [locationSwap, setLocationSwap] = useState<"idle" | "loading" | "failed">("idle");
+  const [isImageReady, setIsImageReady] = useState(false);
   const currentPlayer = props.players[props.state.currentPlayerIndex] ?? props.players[0];
   const location = currentGeoLocation(props.state);
+  const currentRoundAnswers = roundAnswers(props.state);
+  const canReplaceLocation = currentRoundAnswers.length === 0;
+
+  async function replaceFailedGeoLocation() {
+    if (!canReplaceLocation || locationSwap === "loading") return;
+    setLocationSwap("loading");
+    try {
+      const locations = await loadPlayableGeoLocations();
+      const replacement = pickReplacementGeoLocation(locations, location);
+      if (!replacement) {
+        setLocationSwap("failed");
+        return;
+      }
+      props.setState(replaceCurrentGeoLocation(props.state, replacement));
+      setLocationSwap("idle");
+    } catch {
+      setLocationSwap("failed");
+    }
+  }
 
   if (props.state.phase === "handoff") {
     return <PassDevice label="回答者" player={currentPlayer} onConfirm={() => props.setState({ ...props.state, phase: "viewingImage" })} />;
@@ -1093,8 +1112,16 @@ function GeoGame(props: {
       <section className="screen">
         <Topbar title="地点画像" eyebrow="日本マップGuessr" onBack={() => props.setState({ ...props.state, phase: "handoff" })} />
         <div className="content">
-          <GeoImagePanel location={location} playerName={currentPlayer.nickname} />
-          <button className="primary" type="button" onClick={() => props.setState({ ...props.state, phase: "placingPin", pendingGuess: { lat: 36, lng: 138 } })}>
+          <GeoImagePanel
+            location={location}
+            playerName={currentPlayer.nickname}
+            canReplaceLocation={canReplaceLocation}
+            isReplacingLocation={locationSwap === "loading"}
+            replaceLocationError={locationSwap === "failed"}
+            onReplaceLocation={replaceFailedGeoLocation}
+            onReadyChange={setIsImageReady}
+          />
+          <button className="primary" type="button" onClick={() => props.setState({ ...props.state, phase: "placingPin", pendingGuess: undefined })} disabled={!isImageReady}>
             地図を開く
           </button>
         </div>
@@ -1107,8 +1134,8 @@ function GeoGame(props: {
       <section className="screen">
         <Topbar title="回答する" eyebrow="日本マップGuessr" onBack={() => props.setState({ ...props.state, phase: "viewingImage" })} />
         <div className="content">
-          <LeafletAnswerMap value={props.state.pendingGuess ?? { lat: 36, lng: 138 }} onChange={(pendingGuess) => props.setState({ ...props.state, pendingGuess })} />
-          <button className="primary" type="button" onClick={() => submitGeoGuess(props.state, props.setState, props.players, currentPlayer.id, props.state.pendingGuess ?? { lat: 36, lng: 138 })}>
+          <LeafletAnswerMap value={props.state.pendingGuess} onChange={(pendingGuess) => props.setState({ ...props.state, pendingGuess })} />
+          <button className="primary" type="button" onClick={() => props.state.pendingGuess && submitGeoGuess(props.state, props.setState, props.players, currentPlayer.id, props.state.pendingGuess)} disabled={!props.state.pendingGuess}>
             回答を確定
           </button>
         </div>
@@ -1123,6 +1150,7 @@ function GeoGame(props: {
         <Topbar title="結果" eyebrow="日本マップGuessr" />
         <div className="content">
           <div className="topic">正解地点とみんなの回答</div>
+          <p className="muted">色付きの線は、正解地点から各プレイヤーの回答までの距離です。</p>
           <LeafletResultMap location={location} answers={answers} players={props.players} />
           <GeoResultRows answers={answers} players={props.players} />
           <AdSlot context="result" />
@@ -1152,6 +1180,14 @@ function GeoGame(props: {
       </div>
     </section>
   );
+}
+
+function pickReplacementGeoLocation(locations: GeoLocation[], currentLocation: GeoLocation) {
+  const candidates = locations.filter((location) => {
+    return location.enabled && location.qaStatus !== "rejected" && location.id !== currentLocation.id && !location.mapillaryImageId.startsWith("fallback-");
+  });
+  if (!candidates.length) return null;
+  return candidates[Math.floor(Math.random() * candidates.length)] ?? candidates[0];
 }
 
 function DrinkingGamesBrowser(props: {
@@ -1253,17 +1289,13 @@ function WerewolfGame(props: {
     const role = roleDefinitions[props.state.playerInitialCards[currentPlayer.id]];
     return (
       <section className="screen">
-        <Topbar title="役職確認" eyebrow="ワンナイト人狼" onBack={() => props.setState({ ...props.state, phase: "roleHandoff" })} />
+        <Topbar title="役職確認" eyebrow="ワンナイト人狼" />
         <div className="content">
           <div className="role-card">
             <RoleSymbol roleId={role.roleId} />
             <h2>{role.name}</h2>
             <p>{role.description}</p>
-            <div className="note role-note">
-              <strong>できること</strong>
-              <span>{role.actionSummary}</span>
-              <span>{role.detail}</span>
-            </div>
+            <RoleDetailList roleId={role.roleId} />
           </div>
           <button
             className="primary"
@@ -1288,7 +1320,7 @@ function WerewolfGame(props: {
   }
 
   if (props.state.phase === "nightHandoff") {
-    return <PassDevice label="夜の行動" player={currentPlayer} onConfirm={() => props.setState({ ...props.state, phase: "nightAction" })} />;
+    return <PassDevice label="夜の確認" player={currentPlayer} onConfirm={() => props.setState({ ...props.state, phase: "nightAction" })} />;
   }
 
   if (props.state.phase === "nightAction") {
@@ -1304,11 +1336,11 @@ function WerewolfGame(props: {
           action.mode === "center"
             ? `中央: ${(action.seenCenterCards ?? props.state.centerCards).map((seenRoleId) => roleDefinitions[seenRoleId].name).join(" / ")}`
             : `${target?.nickname ?? "選択したプレイヤー"}: ${roleDefinitions[action.seenRole ?? "villager"].name}`;
-        return <NightScreen roleId={roleId} title="夜の行動" text={`${currentPlayer.nickname}だけ確認してください。`} result={result} onNext={advanceNight} />;
+        return <NightScreen roleId={roleId} title="夜の確認" text={`${currentPlayer.nickname}だけ確認してください。`} result={result} onNext={advanceNight} />;
       }
       return (
         <section className="screen">
-          <Topbar title="夜の行動" eyebrow="ワンナイト人狼" />
+          <Topbar title="夜の確認" eyebrow="ワンナイト人狼" />
           <div className="content">
             <RoleActionIntro player={currentPlayer} roleId={roleId} />
             <div className="vote-grid">
@@ -1352,7 +1384,7 @@ function WerewolfGame(props: {
       return (
         <NightScreen
           roleId={roleId}
-          title="夜の行動"
+          title="夜の確認"
           text={`${currentPlayer.nickname}だけ確認してください。`}
           result={result}
           onNext={() => {
@@ -1369,11 +1401,11 @@ function WerewolfGame(props: {
       if (action) {
         const target = props.players.find((player) => player.id === action.targetPlayerId);
         const result = action.skipped ? `今の役職: ${roleDefinitions[action.newRole ?? "robber"].name}` : `${target?.nickname ?? "選択したプレイヤー"}と交換 / 今の役職: ${roleDefinitions[action.newRole ?? "villager"].name}`;
-        return <NightScreen roleId={roleId} title="夜の行動" text={`${currentPlayer.nickname}だけ確認してください。`} result={result} onNext={advanceNight} />;
+        return <NightScreen roleId={roleId} title="夜の確認" text={`${currentPlayer.nickname}だけ確認してください。`} result={result} onNext={advanceNight} />;
       }
       return (
         <section className="screen">
-          <Topbar title="夜の行動" eyebrow="ワンナイト人狼" />
+          <Topbar title="夜の確認" eyebrow="ワンナイト人狼" />
           <div className="content">
             <RoleActionIntro player={currentPlayer} roleId={roleId} />
             <div className="vote-grid">
@@ -1410,7 +1442,7 @@ function WerewolfGame(props: {
       );
     }
 
-    return <NightScreen roleId={roleId} title="夜の行動" text={`${currentPlayer.nickname}の夜です。`} result={`${role.name}: ${role.actionSummary}`} onNext={advanceNight} />;
+    return <NightScreen roleId={roleId} title="夜の確認" text={`${currentPlayer.nickname}だけ確認してください。`} result={role.nightAction} onNext={advanceNight} />;
   }
 
   if (props.state.phase === "discussion") {
@@ -1435,7 +1467,7 @@ function WerewolfGame(props: {
   if (props.state.phase === "vote") {
     return (
       <section className="screen">
-        <Topbar title="投票" eyebrow="ワンナイト人狼" onBack={() => props.setState({ ...props.state, phase: "voteHandoff" })} />
+        <Topbar title="投票" eyebrow="ワンナイト人狼" />
         <div className="content">
           <div className="pass-sub">{currentPlayer.nickname}の投票</div>
           <div className="vote-grid">
@@ -1533,7 +1565,21 @@ function moveNumberOrder(state: NumberTalkState, setState: (state: NumberTalkSta
   setState({ ...state, order });
 }
 
-function LeafletAnswerMap(props: { value: { lat: number; lng: number }; onChange: (value: { lat: number; lng: number }) => void }) {
+function getNumberResultRows(state: NumberTalkState, players: Player[]) {
+  let previousNumber = -Infinity;
+  return state.order
+    .map((playerId) => {
+      const player = players.find((item) => item.id === playerId);
+      if (!player) return null;
+      const number = getNumberForPlayer(state, player.id);
+      const breaksOrder = number < previousNumber;
+      previousNumber = number;
+      return { player, number, breaksOrder };
+    })
+    .filter((item): item is { player: Player; number: number; breaksOrder: boolean } => Boolean(item));
+}
+
+function LeafletAnswerMap(props: { value?: { lat: number; lng: number }; onChange: (value: { lat: number; lng: number }) => void }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const leafletRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
@@ -1546,10 +1592,13 @@ function LeafletAnswerMap(props: { value: { lat: number; lng: number }; onChange
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; OpenStreetMap contributors"
     }).addTo(map);
-    markerRef.current = L.marker([props.value.lat, props.value.lng], { icon: createLeafletPinIcon("#171717") }).addTo(map);
     map.on("click", (event) => {
       const next = { lat: event.latlng.lat, lng: event.latlng.lng };
-      markerRef.current?.setLatLng(event.latlng);
+      if (markerRef.current) {
+        markerRef.current.setLatLng(event.latlng);
+      } else {
+        markerRef.current = L.marker(event.latlng, { icon: createLeafletPinIcon("#171717") }).addTo(map);
+      }
       onChangeRef.current(next);
     });
     leafletRef.current = map;
@@ -1562,10 +1611,20 @@ function LeafletAnswerMap(props: { value: { lat: number; lng: number }; onChange
   }, []);
 
   useEffect(() => {
-    markerRef.current?.setLatLng([props.value.lat, props.value.lng]);
-  }, [props.value.lat, props.value.lng]);
+    if (!props.value) return;
+    if (markerRef.current) {
+      markerRef.current.setLatLng([props.value.lat, props.value.lng]);
+    } else if (leafletRef.current) {
+      markerRef.current = L.marker([props.value.lat, props.value.lng], { icon: createLeafletPinIcon("#171717") }).addTo(leafletRef.current);
+    }
+  }, [props.value?.lat, props.value?.lng]);
 
-  return <div className="leaflet-panel" ref={mapRef} />;
+  return (
+    <div className="map-answer-shell">
+      <div className="leaflet-panel" ref={mapRef} />
+      {!props.value && <div className="map-answer-hint">地図をタップしてピンを置く</div>}
+    </div>
+  );
 }
 
 function LeafletResultMap(props: { location: GeoState["roundLocations"][number]; answers: GeoAnswer[]; players: Player[] }) {
@@ -1588,9 +1647,11 @@ function LeafletResultMap(props: { location: GeoState["roundLocations"][number];
       points.push(guessLatLng);
       L.polyline([correctLatLng, guessLatLng], {
         color: player?.color ?? "#171717",
-        weight: 3,
-        opacity: 0.72,
-        dashArray: "6 6"
+        weight: 5,
+        opacity: 0.9,
+        dashArray: "8 8",
+        lineCap: "round",
+        lineJoin: "round"
       }).addTo(map);
       L.marker(guessLatLng, { icon: createLeafletPinIcon(player?.color ?? "#171717") }).addTo(map).bindTooltip(player?.nickname ?? "回答", { direction: "bottom", offset: [0, 10] });
     });
@@ -1637,24 +1698,37 @@ function GeoResultRows(props: { answers: GeoAnswer[]; players: Player[] }) {
   );
 }
 
-function GeoImagePanel(props: { location: GeoState["roundLocations"][number]; playerName: string }) {
+function GeoImagePanel(props: {
+  location: GeoState["roundLocations"][number];
+  playerName: string;
+  canReplaceLocation: boolean;
+  isReplacingLocation: boolean;
+  replaceLocationError: boolean;
+  onReplaceLocation: () => void;
+  onReadyChange: (isReady: boolean) => void;
+}) {
   const [result, setResult] = useState<StreetImageLoadResult | { status: "loading" }>({ status: "loading" });
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setResult({ status: "loading" });
+    props.onReadyChange(false);
     loadMapillaryStreetImage(props.location).then((nextResult) => {
-      if (!cancelled) setResult(nextResult);
+      if (!cancelled) {
+        setResult(nextResult);
+        props.onReadyChange(nextResult.status === "ready");
+      }
     });
     return () => {
       cancelled = true;
     };
-  }, [props.location.id, retryCount]);
+  }, [props.location.id, props.onReadyChange, retryCount]);
 
   const isReady = result.status === "ready";
   const image = isReady ? result.image : null;
   const copy = getStreetImageCopy(result, props.location);
+  const hasImageError = result.status !== "loading" && result.status !== "ready";
 
   return (
     <div className={`street-view ${isReady ? "has-image" : ""}`}>
@@ -1677,6 +1751,13 @@ function GeoImagePanel(props: { location: GeoState["roundLocations"][number]; pl
             再試行
           </button>
         )}
+        {hasImageError && props.canReplaceLocation && (
+          <button className="inline-action" type="button" onClick={props.onReplaceLocation} disabled={props.isReplacingLocation}>
+            {props.isReplacingLocation ? "切り替え中" : "別の地点に切り替える"}
+          </button>
+        )}
+        {hasImageError && !props.canReplaceLocation && <span>回答済みの人がいるため、この地点のまま再試行してください。</span>}
+        {props.replaceLocationError && <span>代替地点を読み込めませんでした。通信状態を確認して再試行してください。</span>}
       </div>
     </div>
   );
@@ -1710,13 +1791,13 @@ function PannableStreetImage(props: { src: string }) {
       }}
     >
       <img className="street-image" src={props.src} alt="Mapillary street-level imagery" style={{ transform: `translateX(${offset}%)` }} draggable={false} />
-      <span className="pan-hint">ドラッグで左右を見る</span>
+      <span className="pan-hint">画像を左右にずらす</span>
     </div>
   );
 }
 
 function getStreetImageCopy(result: StreetImageLoadResult | { status: "loading" }, location: GeoState["roundLocations"][number]) {
-  const place = `${location.prefecture ?? location.region ?? "日本"} / ${location.tags.join(", ")}`;
+  const place = location.difficulty === "hard" ? "固定画像 / 難しめ" : "固定画像 / 日本のどこか";
   if (result.status === "loading") {
     return { title: "Mapillary image", detail: place, message: "画像を読み込み中です。" };
   }
@@ -1729,20 +1810,6 @@ function getStreetImageCopy(result: StreetImageLoadResult | { status: "loading" 
 function formatDistance(meters: number) {
   if (meters < 1000) return `${meters}m`;
   return `${(meters / 1000).toFixed(1)}km`;
-}
-
-function PassDevice(props: { label: string; player: Player; onConfirm: () => void }) {
-  return (
-    <section className="pass-screen">
-      <div className="pass-card" style={{ "--player-color": props.player.color } as React.CSSProperties}>
-        <span className="pass-sub">{props.label}</span>
-        <strong className="pass-name">{props.player.nickname}</strong>
-        <button className="primary" type="button" onClick={props.onConfirm}>
-          画面を見る
-        </button>
-      </div>
-    </section>
-  );
 }
 
 function NightScreen(props: { roleId?: RoleId; title: string; text: string; result?: string; onNext: () => void }) {
@@ -1764,24 +1831,66 @@ function NightScreen(props: { roleId?: RoleId; title: string; text: string; resu
   );
 }
 
-function FinalResultActions(props: { onRestart: () => void | Promise<void>; onHome: () => void }) {
+function RoleSymbol(props: { roleId: RoleId }) {
   return (
-    <div className="actions">
-      <button className="primary" type="button" onClick={() => void props.onRestart()}>
-        もう一度
-      </button>
-      <button className="secondary" type="button" onClick={props.onHome}>
-        ゲーム一覧へ
-      </button>
+    <div className={`role-symbol role-symbol-${props.roleId}`} aria-hidden="true">
+      <RoleIcon roleId={props.roleId} />
     </div>
   );
 }
 
-function RoleSymbol(props: { roleId: RoleId }) {
+function RoleIcon(props: { roleId: RoleId }) {
+  if (props.roleId === "werewolf") {
+    return (
+      <svg viewBox="0 0 64 64" focusable="false">
+        <path d="M17 48 24 20l10 10 10-10 7 28-8 10H25z" />
+        <path d="M26 43h5M38 43h5" />
+        <path d="M29 51h6l6-6" />
+      </svg>
+    );
+  }
+  if (props.roleId === "seer") {
+    return (
+      <svg viewBox="0 0 64 64" focusable="false">
+        <path d="M10 32s8-14 22-14 22 14 22 14-8 14-22 14S10 32 10 32z" />
+        <circle cx="32" cy="32" r="8" />
+        <path d="M32 8v6M32 50v6M12 16l5 5M52 16l-5 5" />
+      </svg>
+    );
+  }
+  if (props.roleId === "robber") {
+    return (
+      <svg viewBox="0 0 64 64" focusable="false">
+        <path d="M12 30c7-8 33-8 40 0v10c-7 8-33 8-40 0z" />
+        <path d="M23 37h8M36 37h8" />
+        <path d="M22 25c1-8 6-13 10-13s9 5 10 13" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 64 64" focusable="false">
+      <path d="M12 32 32 14l20 18v20H38V39H26v13H12z" />
+      <path d="M24 52V39h16v13" />
+    </svg>
+  );
+}
+
+function RoleDetailList(props: { roleId: RoleId }) {
   const role = roleDefinitions[props.roleId];
   return (
-    <div className={`role-symbol role-symbol-${props.roleId}`} aria-hidden="true">
-      {role.icon}
+    <div className="role-detail-list">
+      <div>
+        <strong>夜にすること</strong>
+        <span>{role.nightAction}</span>
+      </div>
+      <div>
+        <strong>議論で考えること</strong>
+        <span>{role.discussionHint}</span>
+      </div>
+      <div>
+        <strong>勝利条件への影響</strong>
+        <span>{role.winConditionHint}</span>
+      </div>
     </div>
   );
 }
@@ -1793,39 +1902,8 @@ function RoleActionIntro(props: { player: Player; roleId: RoleId }) {
       <RoleSymbol roleId={props.roleId} />
       <h2>{props.player.nickname}</h2>
       <p>
-        {role.name}: {role.actionSummary}
+        {role.name}: {role.nightAction}
       </p>
-    </div>
-  );
-}
-
-function PlayerStrip(props: { players: Player[] }) {
-  return (
-    <div className="players-strip">
-      {props.players.map((player) => (
-        <span key={player.id} className="player-chip">
-          <span className="dot" style={{ "--chip-color": player.color } as React.CSSProperties} />
-          {player.nickname}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function PlayerOrder(props: { playerIds: string[]; players: Player[] }) {
-  return (
-    <div className="order-list">
-      {props.playerIds.map((playerId, index) => {
-        const player = props.players.find((item) => item.id === playerId);
-        if (!player) return null;
-        return (
-          <div key={player.id} className="order-item simple-order-item">
-            <span className="rank">{index + 1}</span>
-            <span className="dot" style={{ "--chip-color": player.color } as React.CSSProperties} />
-            <strong>{player.nickname}</strong>
-          </div>
-        );
-      })}
     </div>
   );
 }
@@ -1914,11 +1992,6 @@ function Segmented(props: { value: string; options: string[]; labels?: Record<st
       ))}
     </div>
   );
-}
-
-function AdSlot(props: { context: Parameters<typeof canShowAds>[0] }) {
-  if (!canShowAds(props.context)) return null;
-  return <div className="ad-slot">広告エリア</div>;
 }
 
 function restorePersistedAppState(): RestoredAppState | null {

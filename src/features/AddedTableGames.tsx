@@ -1,8 +1,9 @@
 import type * as React from "react";
 import { useRef, useState } from "react";
 import { CountdownTimer } from "../components/CountdownTimer";
-import { canShowAds } from "../core/adPolicy";
+import { AdSlot, FinalResultActions, PassDevice, PlayerOrder, PlayerStrip, Topbar } from "../components/PartyScreens";
 import type { GameId, Player } from "../core/types";
+import { wordInfiltratorTopics } from "../data/wordInfiltratorTopics";
 import {
   isWordInfiltrator,
   judgeWordInfiltrator,
@@ -96,89 +97,6 @@ export default function AddedTableGameScreens(props: AddedTableGameScreensProps)
   return null;
 }
 
-function Topbar(props: { title: string; eyebrow?: string; onBack?: () => void; right?: React.ReactNode }) {
-  return (
-    <header className={`topbar ${props.onBack ? "has-back" : ""}`}>
-      {props.onBack && (
-        <button className="icon-button back-button" type="button" onClick={props.onBack} aria-label="戻る">
-          ‹
-        </button>
-      )}
-      <div className="brand">
-        <div className="mark" aria-hidden="true" />
-        <div>
-          <div className="eyebrow">{props.eyebrow ?? "Party Deck"}</div>
-          <h1>{props.title}</h1>
-        </div>
-      </div>
-      <div className="topbar-right">{props.right}</div>
-    </header>
-  );
-}
-
-function PassDevice(props: { label: string; player: Player; onConfirm: () => void }) {
-  return (
-    <section className="pass-screen">
-      <div className="pass-card" style={{ "--player-color": props.player.color } as React.CSSProperties}>
-        <span className="pass-sub">{props.label}</span>
-        <strong className="pass-name">{props.player.nickname}</strong>
-        <button className="primary" type="button" onClick={props.onConfirm}>
-          画面を見る
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function FinalResultActions(props: { onRestart: () => void | Promise<void>; onHome: () => void }) {
-  return (
-    <div className="actions">
-      <button className="primary" type="button" onClick={() => void props.onRestart()}>
-        もう一度
-      </button>
-      <button className="secondary" type="button" onClick={props.onHome}>
-        ゲーム一覧へ
-      </button>
-    </div>
-  );
-}
-
-function PlayerStrip(props: { players: Player[] }) {
-  return (
-    <div className="players-strip">
-      {props.players.map((player) => (
-        <span key={player.id} className="player-chip">
-          <span className="dot" style={{ "--chip-color": player.color } as React.CSSProperties} />
-          {player.nickname}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function PlayerOrder(props: { playerIds: string[]; players: Player[] }) {
-  return (
-    <div className="order-list">
-      {props.playerIds.map((playerId, index) => {
-        const player = props.players.find((item) => item.id === playerId);
-        if (!player) return null;
-        return (
-          <div key={player.id} className="order-item simple-order-item">
-            <span className="rank">{index + 1}</span>
-            <span className="dot" style={{ "--chip-color": player.color } as React.CSSProperties} />
-            <strong>{player.nickname}</strong>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function AdSlot(props: { context: Parameters<typeof canShowAds>[0] }) {
-  if (!canShowAds(props.context)) return null;
-  return <div className="ad-slot">広告エリア</div>;
-}
-
 function SecretRevealScreen(props: {
   title: string;
   eyebrow: string;
@@ -186,7 +104,7 @@ function SecretRevealScreen(props: {
   headline: string;
   detail: string;
   tone?: "default" | "danger" | "muted";
-  onBack: () => void;
+  onBack?: () => void;
   onNext: () => void;
 }) {
   const toneClass = props.tone === "danger" ? "danger" : props.tone === "muted" ? "muted-card" : "";
@@ -212,12 +130,11 @@ function SecretVoteScreen(props: {
   eyebrow: string;
   currentPlayer: Player;
   candidates: Player[];
-  onBack: () => void;
   onVote: (targetPlayerId: string) => void;
 }) {
   return (
     <section className="screen">
-      <Topbar title={props.title} eyebrow={props.eyebrow} onBack={props.onBack} />
+      <Topbar title={props.title} eyebrow={props.eyebrow} />
       <div className="content">
         <div className="pass-sub">{props.currentPlayer.nickname}の投票</div>
         <div className="vote-grid">
@@ -256,7 +173,6 @@ function WordInfiltratorGame(props: {
         headline={isInfiltratorPlayer ? "あなたは潜入者" : props.state.topic.secretWord}
         detail={isInfiltratorPlayer ? `カテゴリ: ${props.state.topic.categoryLabel}` : "この言葉が他の人に悟られすぎないよう、ヒントを考えます。"}
         tone={isInfiltratorPlayer ? "danger" : "default"}
-        onBack={() => props.setState({ ...props.state, phase: "handoff" })}
         onNext={() => {
           const viewed = [...new Set([...props.state.revealViewedPlayerIds, currentPlayer.id])];
           const isLast = props.state.currentPlayerIndex >= props.players.length - 1;
@@ -277,6 +193,7 @@ function WordInfiltratorGame(props: {
         <Topbar title="ヒント順" eyebrow="ワード潜入者" />
         <div className="content">
           <div className="topic">カテゴリ: {props.state.topic.categoryLabel}</div>
+          <CandidateWordList title="公開候補" words={getWordCandidateWords(props.state)} />
           <div className="note">
             <strong>ヒント</strong>
             <span>順番に1語ずつ言います。秘密の言葉をそのまま言ったり、近すぎる説明は避けます。</span>
@@ -317,7 +234,6 @@ function WordInfiltratorGame(props: {
         eyebrow="ワード潜入者"
         currentPlayer={currentPlayer}
         candidates={props.players.filter((player) => player.id !== currentPlayer.id)}
-        onBack={() => props.setState({ ...props.state, phase: "voteHandoff" })}
         onVote={(targetPlayerId) => {
           const next = submitWordInfiltratorVote(props.state, { fromPlayerId: currentPlayer.id, targetPlayerId });
           const isLast = props.state.currentPlayerIndex >= props.players.length - 1;
@@ -340,13 +256,13 @@ function WordInfiltratorGame(props: {
           <div className="secret-card danger">
             <span className="muted">{infiltrator?.nickname ?? "潜入者"}だけ入力してください</span>
             <h2>秘密の言葉は？</h2>
-            <p>当てることができれば、潜入者側の逆転勝利です。</p>
+            <p>公開候補の中から当てることができれば、潜入者側の逆転勝利です。</p>
           </div>
-          <input
-            className="search-input"
-            value={props.state.infiltratorGuess ?? ""}
-            placeholder="推理した言葉"
-            onChange={(event) => props.setState({ ...props.state, infiltratorGuess: event.target.value })}
+          <CandidateWordList
+            title="公開候補"
+            words={getWordCandidateWords(props.state)}
+            selected={props.state.infiltratorGuess}
+            onSelect={(word) => props.setState({ ...props.state, infiltratorGuess: word })}
           />
           <button className="primary" type="button" onClick={() => props.setState({ ...props.state, phase: "result" })} disabled={!props.state.infiltratorGuess?.trim()}>
             結果を見る
@@ -420,7 +336,6 @@ function InsiderGuessGame(props: {
         headline={formatInsiderRole(role)}
         detail={getInsiderRoleDescription(role)}
         tone={role === "insider" ? "danger" : "default"}
-        onBack={() => props.setState({ ...props.state, phase: "roleHandoff" })}
         onNext={() => {
           const done = [...new Set([...props.state.roleRevealDonePlayerIds, currentPlayer.id])];
           const isLast = props.state.currentPlayerIndex >= props.players.length - 1;
@@ -449,7 +364,6 @@ function InsiderGuessGame(props: {
         headline={canViewAnswer ? props.state.answer.text : "答えは見ません"}
         detail={canViewAnswer ? `カテゴリ: ${props.state.answer.categoryLabel}` : "市民は答えを知らないまま質問に参加します。"}
         tone={canViewAnswer ? "default" : "muted"}
-        onBack={() => props.setState({ ...props.state, phase: "answerHandoff" })}
         onNext={() => {
           const done = [...new Set([...props.state.answerRevealDonePlayerIds, currentPlayer.id])];
           const isLast = props.state.currentPlayerIndex >= props.players.length - 1;
@@ -515,7 +429,6 @@ function InsiderGuessGame(props: {
         eyebrow="インサイダー推理"
         currentPlayer={currentPlayer}
         candidates={props.players.filter((player) => player.id !== currentPlayer.id)}
-        onBack={() => props.setState({ ...props.state, phase: "voteHandoff" })}
         onVote={(targetPlayerId) => submitInsiderVote(props.state, props.setState, props.players, { fromPlayerId: currentPlayer.id, targetPlayerId })}
       />
     );
@@ -588,7 +501,6 @@ function SpyLocationGame(props: {
         headline={isSpy ? "あなたはスパイ" : props.state.location.name}
         detail={isSpy ? "場所は知らされません。質問に自然に答えながら、場所を推理します。" : props.state.location.hint}
         tone={isSpy ? "danger" : "default"}
-        onBack={() => props.setState({ ...props.state, phase: "handoff" })}
         onNext={() => {
           const viewed = [...new Set([...props.state.revealViewedPlayerIds, currentPlayer.id])];
           const isLast = props.state.currentPlayerIndex >= props.players.length - 1;
@@ -609,6 +521,12 @@ function SpyLocationGame(props: {
         <Topbar title="質問" eyebrow="スパイロケーション" />
         <div className="content">
           <div className="topic">質問しながらスパイを探す</div>
+          <LocationCandidateList locations={getSpyLocationChoices(props.state)} />
+          <div className="note">
+            <strong>質問順の目安</strong>
+            <span>上から順に質問し、答えた人が次の人へ質問します。</span>
+          </div>
+          <PlayerOrder playerIds={props.players.map((player) => player.id)} players={props.players} />
           <CountdownTimer seconds={props.state.config.questionTimeSec} />
           <PlayerStrip players={props.players} />
           <button className="primary" type="button" onClick={() => props.setState({ ...props.state, phase: "accuse" })}>
@@ -662,7 +580,7 @@ function SpyLocationGame(props: {
   if (props.state.phase === "accusationVote") {
     return (
       <section className="screen">
-        <Topbar title="告発投票" eyebrow="スパイロケーション" onBack={() => props.setState({ ...props.state, phase: "accusationVoteHandoff" })} />
+        <Topbar title="告発投票" eyebrow="スパイロケーション" />
         <div className="content">
           <div className="topic">{accused?.nickname ?? "選択した人"}を公開しますか？</div>
           <div className="actions">
@@ -692,6 +610,7 @@ function SpyLocationGame(props: {
             <h2>場所はどこ？</h2>
             <p>正解すればスパイ側の勝利です。</p>
           </div>
+          <LocationCandidateList locations={getSpyLocationChoices(props.state)} compact />
           <div className="vote-grid">
             {getSpyLocationChoices(props.state).map((location) => (
               <button key={location.id} className="vote-button" type="button" onClick={() => props.setState({ ...props.state, spyGuessLocationId: location.id, phase: "result" })}>
@@ -761,7 +680,7 @@ function SpectrumMeterGame(props: {
   if (props.state.phase === "psychicReveal") {
     return (
       <section className="screen">
-        <Topbar title="親の確認" eyebrow="価値観メーター" onBack={() => props.setState({ ...props.state, phase: "psychicHandoff" })} />
+        <Topbar title="親の確認" eyebrow="価値観メーター" />
         <div className="content">
           <SpectrumScaleCard round={round} showTarget />
           <button className="primary" type="button" onClick={() => props.setState({ ...props.state, phase: "clue" })}>
@@ -884,6 +803,8 @@ function RankingAnswersGame(props: {
   const round = currentRankingRound(props.state);
   const currentPlayer = props.players[props.state.currentPlayerIndex] ?? props.players[0];
   const captain = props.players.find((player) => player.id === round.captainPlayerId) ?? props.players[0];
+  const usedTokens = totalRankingMistakes(props.state);
+  const remainingTokens = Math.max(0, props.state.config.mistakeLimit - usedTokens);
 
   if (props.state.phase === "numberHandoff") {
     return <PassDevice label="数字確認" player={currentPlayer} onConfirm={() => props.setState({ ...props.state, phase: "numberReveal" })} />;
@@ -892,7 +813,7 @@ function RankingAnswersGame(props: {
   if (props.state.phase === "numberReveal") {
     return (
       <section className="screen">
-        <Topbar title="数字確認" eyebrow="ランキング回答" onBack={() => props.setState({ ...props.state, phase: "numberHandoff" })} />
+        <Topbar title="数字確認" eyebrow="ランキング回答" />
         <div className="content">
           <div className="topic">{round.prompt.text}</div>
           <div className="number-card">
@@ -926,6 +847,7 @@ function RankingAnswersGame(props: {
         <Topbar title="回答" eyebrow="ランキング回答" />
         <div className="content">
           <div className="topic">{round.prompt.text}</div>
+          <RankingTokenTrack total={props.state.config.mistakeLimit} remaining={remainingTokens} />
           <div className="hint-row">
             <span>{round.prompt.lowLabel}</span>
             <span>{round.prompt.highLabel}</span>
@@ -961,6 +883,7 @@ function RankingAnswersGame(props: {
         <Topbar title="並び替え" eyebrow="ランキング回答" onBack={() => props.setState({ ...props.state, phase: "answer" })} />
         <div className="content">
           <div className="topic">キャプテン: {captain?.nickname ?? "不明"}</div>
+          <RankingTokenTrack total={props.state.config.mistakeLimit} remaining={remainingTokens} />
           <div className="order-list">
             {orderedPlayers.map((player, index) => (
               <div key={player.id} className="order-item">
@@ -992,21 +915,22 @@ function RankingAnswersGame(props: {
 
   if (props.state.phase === "roundResult") {
     const isLastRound = props.state.currentRoundIndex >= props.state.rounds.length - 1;
+    const isOutOfTokens = usedTokens >= props.state.config.mistakeLimit;
+    const resultRows = getRankingRoundRows(round, props.players);
     return (
       <section className="screen">
         <Topbar title="結果" eyebrow="ランキング回答" />
         <div className="content">
           <div className="topic">ミス {round.mistakeCount ?? 0}</div>
+          <RankingTokenTrack total={props.state.config.mistakeLimit} remaining={remainingTokens} />
           <div className="result-list">
-            {round.captainOrder.map((playerId) => {
-              const player = props.players.find((item) => item.id === playerId);
-              const assignment = round.assignments.find((item) => item.playerId === playerId);
-              if (!player || !assignment) return null;
+            {resultRows.map(({ player, assignment, breaksOrder }) => {
               return (
-                <div key={player.id} className="result-row">
+                <div key={player.id} className={`result-row ${breaksOrder ? "result-row-alert" : ""}`}>
                   <span className="dot" style={{ "--chip-color": player.color } as React.CSSProperties} />
                   <strong>{player.nickname}</strong>
                   <span className="score">
+                    {breaksOrder && <small className="status-badge">ミス</small>}
                     {assignment.number}
                     <small>{assignment.answerText || "回答メモなし"}</small>
                   </span>
@@ -1020,14 +944,14 @@ function RankingAnswersGame(props: {
             onClick={() =>
               props.setState({
                 ...props.state,
-                currentRoundIndex: isLastRound ? props.state.currentRoundIndex : props.state.currentRoundIndex + 1,
+                currentRoundIndex: isLastRound || isOutOfTokens ? props.state.currentRoundIndex : props.state.currentRoundIndex + 1,
                 currentPlayerIndex: 0,
                 numberRevealDonePlayerIds: [],
-                phase: isLastRound ? "final" : "numberHandoff"
+                phase: isLastRound || isOutOfTokens ? "final" : "numberHandoff"
               })
             }
           >
-            {isLastRound ? "最終結果へ" : "次のラウンドへ"}
+            {isLastRound || isOutOfTokens ? "最終結果へ" : "次のラウンドへ"}
           </button>
         </div>
       </section>
@@ -1035,16 +959,17 @@ function RankingAnswersGame(props: {
   }
 
   const totalMistakes = totalRankingMistakes(props.state);
-  const success = totalMistakes <= props.state.config.mistakeLimit;
+  const success = totalMistakes < props.state.config.mistakeLimit;
   return (
     <section className="screen">
       <Topbar title="最終結果" eyebrow="ランキング回答" />
       <div className="content">
         <div className="topic">{success ? "協力成功" : "協力失敗"}</div>
+        <RankingTokenTrack total={props.state.config.mistakeLimit} remaining={Math.max(0, props.state.config.mistakeLimit - totalMistakes)} />
         <div className="note">
-          <strong>合計ミス</strong>
+          <strong>残りトークン</strong>
           <span>
-            {totalMistakes}/{props.state.config.mistakeLimit}
+            {Math.max(0, props.state.config.mistakeLimit - totalMistakes)}/{props.state.config.mistakeLimit}
           </span>
         </div>
         <div className="result-list">
@@ -1088,7 +1013,6 @@ function FakeArtistGame(props: {
         headline={isFake ? "あなたは偽物" : props.state.topic.text}
         detail={isFake ? `カテゴリ: ${props.state.topic.categoryLabel}` : "お題を知られすぎないよう、自然な線を描きます。"}
         tone={isFake ? "danger" : "default"}
-        onBack={() => props.setState({ ...props.state, phase: "handoff" })}
         onNext={() => {
           const viewed = [...new Set([...props.state.revealViewedPlayerIds, currentPlayer.id])];
           const isLast = props.state.currentPlayerIndex >= props.players.length - 1;
@@ -1142,7 +1066,6 @@ function FakeArtistGame(props: {
         eyebrow="エセアーティスト"
         currentPlayer={currentPlayer}
         candidates={props.players.filter((player) => player.id !== currentPlayer.id)}
-        onBack={() => props.setState({ ...props.state, phase: "voteHandoff" })}
         onVote={(targetPlayerId) => {
           const next = submitFakeArtistVote(props.state, { fromPlayerId: currentPlayer.id, targetPlayerId });
           const isLast = props.state.currentPlayerIndex >= props.players.length - 1;
@@ -1290,6 +1213,75 @@ function RangeGuess(props: { value: number; onChange: (value: number) => void })
       <strong>{props.value}</strong>
     </div>
   );
+}
+
+function getWordCandidateWords(state: WordInfiltratorState) {
+  return wordInfiltratorTopics
+    .filter((topic) => topic.enabled && topic.category === state.topic.category)
+    .map((topic) => topic.secretWord);
+}
+
+function CandidateWordList(props: { title: string; words: string[]; selected?: string; onSelect?: (word: string) => void }) {
+  return (
+    <div className="candidate-panel">
+      <strong>{props.title}</strong>
+      <div className="candidate-list">
+        {props.words.map((word) =>
+          props.onSelect ? (
+            <button key={word} className={props.selected === word ? "candidate-chip active" : "candidate-chip"} type="button" onClick={() => props.onSelect?.(word)}>
+              {word}
+            </button>
+          ) : (
+            <span key={word} className="candidate-chip">
+              {word}
+            </span>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LocationCandidateList(props: { locations: ReturnType<typeof getSpyLocationChoices>; compact?: boolean }) {
+  return (
+    <details className={`candidate-panel ${props.compact ? "compact-candidates" : ""}`} open={!props.compact}>
+      <summary>場所候補</summary>
+      <div className="candidate-list">
+        {props.locations.map((location) => (
+          <span key={location.id} className="candidate-chip">
+            {location.name}
+          </span>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function RankingTokenTrack(props: { total: number; remaining: number }) {
+  return (
+    <div className="token-track" aria-label={`残りトークン ${props.remaining}/${props.total}`}>
+      <span>残りトークン</span>
+      <div>
+        {Array.from({ length: props.total }, (_, index) => (
+          <span key={index} className={index < props.remaining ? "token-dot active" : "token-dot"} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function getRankingRoundRows(round: ReturnType<typeof currentRankingRound>, players: Player[]) {
+  let previousNumber = -Infinity;
+  return round.captainOrder
+    .map((playerId) => {
+      const player = players.find((item) => item.id === playerId);
+      const assignment = round.assignments.find((item) => item.playerId === playerId);
+      if (!player || !assignment) return null;
+      const breaksOrder = assignment.number < previousNumber;
+      previousNumber = assignment.number;
+      return { player, assignment, breaksOrder };
+    })
+    .filter((item): item is { player: Player; assignment: NonNullable<typeof item>["assignment"]; breaksOrder: boolean } => Boolean(item));
 }
 
 function DrawingPad(props: { strokes: FakeArtistStroke[]; players: Player[]; currentPlayer: Player; onSave: (stroke: FakeArtistStroke) => void }) {

@@ -29,6 +29,9 @@
 - `MapillaryProvider` がMapillary固有responseをアプリ内部型 `StreetImage` へ変換する。
 - Guessr画面はMapillary responseの生構造を直接読まない。
 - token未設定、画像未準備の地点、通信失敗、response不正の状態でもゲーム進行を止めない。
+- 画像取得失敗時は再試行できる。まだ誰も回答していない場合のみ、同じラウンドの地点を代替地点へ切り替えられる。
+- 1人でも回答済みの場合は、公平性を守るため地点を切り替えず再試行に限定する。
+- 回答地図へ進むボタンは、Mapillary画像が表示できた後だけ有効になる。
 - attributionとしてMapillaryへのリンクを表示する。
 
 ## 小範囲収集結果
@@ -54,6 +57,32 @@
 - ブラウザで実Mapillary画像とattributionリンクの表示を確認した。
 - Vercel本番環境 `https://party-deck.vercel.app` でもMapillary画像表示を確認した。
 - Vercel側には `VITE_MAPILLARY_ACCESS_TOKEN` を環境変数として登録済み。値はリポジトリに含めない。
+
+## 画像表示監査
+
+2026-06-04に `npm run audit:geo-images -- --limit 500 --concurrency 4` を実行した。
+
+- checked: 100
+- ready: 100
+- failed: 0
+- failureRate: 0
+- output: `data-generated/mapillary/image-audit-report.json`
+
+## 手動QAフラグ運用
+
+問題画像を見つけたら、地点IDで `qaStatus` を更新する。
+
+```sh
+npm run geo:qa -- --id <location-id> --status rejected --dry-run
+npm run geo:qa -- --id <location-id> --status rejected
+npm run validate:geo
+```
+
+- `approved`: 手動確認済みで出題してよい。
+- `unreviewed`: 未確認だがMVPでは出題してよい。
+- `rejected`: 出題しない。
+- `geo:qa` はchunkと `playable-index.json` を更新する。
+- 複数IDは `--id id1,id2` または `--id id1 --id id2` で指定できる。
 
 ## 品質処理
 

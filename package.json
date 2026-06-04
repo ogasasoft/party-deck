@@ -11,6 +11,8 @@
     "smoke": "tsx scripts/smoke-test.ts",
     "collect:mapillary": "tsx scripts/collect-mapillary-japan.ts",
     "collect:mapillary:sample": "tsx scripts/collect-mapillary-japan.ts --sample --install-public --reset",
+    "audit:geo-images": "tsx scripts/audit-geo-images.ts",
+    "geo:qa": "tsx scripts/update-geo-qa.ts",
     "validate:geo": "tsx scripts/validate-geo-locations.ts"
   },
   "dependencies": {
