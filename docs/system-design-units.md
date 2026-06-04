@@ -6,7 +6,7 @@
 
 初期ゲーム:
 
-- 日本マップGuessr
+- 日本マップ当て
 - ナンバートーク
 - ワンナイト人狼
 - 飲み会ゲーム辞典
@@ -393,7 +393,7 @@ type PersistedEnvelope<T> = {
 - 同じ設定でもう一度遊ぶ。
 - ホームへ戻る。
 
-## 日本マップGuessr Unit
+## 日本マップ当て Unit
 
 ### U-GEO-001 GeoGameDefinition Unit
 

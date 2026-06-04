@@ -16,7 +16,7 @@
 - プレイヤー情報はニックネームと担当色のみ。
 - 1台のスマホを順番に受け渡して遊ぶ。
 - 最大8人。
-- 初期ゲームは日本マップGuessr、ナンバートーク、ワンナイト人狼、飲み会ゲーム辞典、ワード潜入者、インサイダー推理、スパイロケーション、価値観メーター、ランキング回答、エセアーティスト。
+- 初期ゲームは日本マップ当て、ナンバートーク、ワンナイト人狼、飲み会ゲーム辞典、ワード潜入者、インサイダー推理、スパイロケーション、価値観メーター、ランキング回答、エセアーティスト。
 - 収益化は広告想定だが、秘密情報や回答操作を邪魔しないことを優先する。
 - 本家系ゲームの進行、役職構成、勝敗条件、採点方法はできるだけ準拠して再現する。文章、画像、音声、UIデザイン、お題リスト、カード文面は許諾やライセンス確認なしに転載しない。
 
@@ -34,6 +34,7 @@
 - `docs/table-game-expansion-task-list.md`: 追加テーブルゲームの詳細作業チェックリスト。
 - `docs/original-flow-alignment-plan.md`: UI・本家フロー準拠改善計画。秘密漏れ、答え漏れ、参考元フロー差分を直すときに読む。
 - `docs/frontend-flow-polish-plan.md`: 友人プレイテスト前のUI・ゲームフロー磨き計画。実機QA、画面状態、共通UI整理の次順を読む。
+- `docs/legal-and-ads-plan.md`: 広告ネットワーク、AdSense有効化条件、プライバシーポリシー、利用規約、Mapillary利用条件。
 - `docs/mapillary-integration-notes.md`: Mapillary連携方針と収集結果。
 - `docs/later-checklist.md`: 後回しタスク、全国データ拡張時の確認項目。
 
@@ -43,19 +44,22 @@
 npm install
 npm run dev
 npm run smoke
+npm run test
 npm run typecheck
 npm run build
 npm run validate:geo
 npm run audit:geo-images
+npm run audit:storage
 npm run geo:qa -- --id <location-id> --status rejected --dry-run
 ```
 
 変更後の基本確認:
 
 1. ロジック変更: `npm run smoke`
-2. TypeScript変更: `npm run typecheck`
-3. 配布前: `npm run build`
-4. UI変更: `npm run dev` でスマホ幅をブラウザ確認
+2. unit対象の変更: `npm run test`
+3. TypeScript変更: `npm run typecheck`
+4. 配布前: `npm run build`
+5. UI変更: `npm run dev` でスマホ幅をブラウザ確認
 
 ## 実装構造
 
@@ -120,6 +124,8 @@ scripts/                       # 収集、検証、smoke
 - 夜行動中
 
 広告表示判断は `src/core/adPolicy.ts` を通してください。
+AdSenseは `VITE_ADSENSE_CLIENT` と `VITE_ADSENSE_SLOT` が両方ある場合だけ読み込みます。未設定時はプレースホルダー表示です。
+AdSense本番有効化前に `/privacy.html`、`/terms.html`、必要地域の同意管理を確認してください。
 
 ## Mapillary運用
 
@@ -148,7 +154,7 @@ UI変更がある場合:
 - 飲み会ゲーム辞典で検索、国フィルタ、下ネタ特別フィルタが動くことを確認する。
 - ナンバートークを結果まで進める。
 - ワンナイト人狼を結果まで進める。
-- 日本マップGuessrでMapillary画像が出ることを確認する。
+- 日本マップ当てでMapillary画像が出ることを確認する。
 - リロード時に秘密情報へ直接戻らないことを確認する。
 
 デプロイ後:

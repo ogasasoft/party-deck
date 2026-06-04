@@ -27,7 +27,7 @@ export type GameDefinitionMap = {
 export const gameDefinitions: GameDefinitionMap = {
   geo: {
     id: "geo",
-    title: "日本マップGuessr",
+    title: "日本マップ当て",
     description: "Mapillaryの日本画像を見て、全員が同じ地点を順番に当てます。",
     minPlayers: 2,
     maxPlayers: 8,

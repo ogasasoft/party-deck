@@ -2,6 +2,7 @@ import L from "leaflet";
 import type * as React from "react";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { CountdownTimer } from "./components/CountdownTimer";
+import { PlayerSetup } from "./components/PlayerSetup";
 import { AdSlot, FinalResultActions, PassDevice, PlayerOrder, PlayerStrip, Topbar } from "./components/PartyScreens";
 import { games, getGameDefinition } from "./core/gameRegistry";
 import { createSeed } from "./core/random";
@@ -17,7 +18,7 @@ import {
   saveGameSession,
   savePlayers
 } from "./core/storage";
-import { ActiveSessionRef, GameId, GameSummary, PLAYER_COLORS, Player } from "./core/types";
+import { ActiveSessionRef, GameId, GameSummary, Player } from "./core/types";
 import {
   createGeoAnswer,
   currentGeoLocation,
@@ -580,66 +581,10 @@ function HomeScreen(props: { onPlayers: () => void; onSelect: (gameId: GameId) =
           ))}
         </div>
         <AdSlot context="home" />
-      </div>
-    </section>
-  );
-}
-
-function PlayerSetup(props: { players: Player[]; setPlayers: (players: Player[]) => void; onBack: () => void }) {
-  function updatePlayer(id: string, patch: Partial<Player>) {
-    props.setPlayers(props.players.map((player) => (player.id === id ? { ...player, ...patch } : player)));
-  }
-
-  function addPlayer() {
-    if (props.players.length >= 8) return;
-    const index = props.players.length + 1;
-    props.setPlayers([
-      ...props.players,
-      { id: `p${index}-${Date.now().toString(36)}`, nickname: `ゲスト${index}`, color: PLAYER_COLORS[(index - 1) % PLAYER_COLORS.length] }
-    ]);
-  }
-
-  function removePlayer(id: string) {
-    if (props.players.length <= 2) return;
-    props.setPlayers(props.players.filter((player) => player.id !== id));
-  }
-
-  return (
-    <section className="screen">
-      <Topbar title="プレイヤー" eyebrow="Setup" onBack={props.onBack} />
-      <div className="content">
-        {props.players.map((player) => (
-          <div key={player.id} className="player-editor">
-            <div className="player-row">
-              <span className="dot" style={{ "--chip-color": player.color } as React.CSSProperties} />
-              <input value={player.nickname} maxLength={10} onChange={(event) => updatePlayer(player.id, { nickname: event.target.value })} />
-              <button className="icon-button" type="button" onClick={() => removePlayer(player.id)} disabled={props.players.length <= 2}>
-                ×
-              </button>
-            </div>
-            <div className="swatches">
-              {PLAYER_COLORS.map((color) => (
-                <button
-                  key={color}
-                  className={`swatch ${player.color === color ? "selected" : ""}`}
-                  style={{ "--swatch": color } as React.CSSProperties}
-                  type="button"
-                  onClick={() => updatePlayer(player.id, { color })}
-                  aria-label={`色 ${color}`}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-        <div className="actions">
-          <button className="secondary" type="button" onClick={addPlayer} disabled={props.players.length >= 8}>
-            追加
-          </button>
-          <button className="primary" type="button" onClick={props.onBack}>
-            決定
-          </button>
-        </div>
-        <AdSlot context="playerSetup" />
+        <nav className="legal-links" aria-label="サイト情報">
+          <a href="/privacy.html">プライバシー</a>
+          <a href="/terms.html">利用規約</a>
+        </nav>
       </div>
     </section>
   );
@@ -758,7 +703,8 @@ function SetupScreen(props: {
             details={[
               "ゲームを開始しても勝敗判定や秘密情報はありません。",
               "国フィルタと検索で、人数や場の空気に合うゲームを探します。",
-              "同じゲームをAIが重複追加しないよう、別名、重複判定キー、参照元をデータに持たせています。"
+              "同じゲームをAIが重複追加しないよう、別名、重複判定キー、参照元をデータに持たせています。",
+              "飲酒の強要や一気飲み前提の遊び方は推奨しません。ソフトドリンクでも遊べる形に置き換えてください。"
             ]}
           />
         )}
@@ -1110,7 +1056,7 @@ function GeoGame(props: {
   if (props.state.phase === "viewingImage") {
     return (
       <section className="screen">
-        <Topbar title="地点画像" eyebrow="日本マップGuessr" onBack={() => props.setState({ ...props.state, phase: "handoff" })} />
+        <Topbar title="地点画像" eyebrow="日本マップ当て" onBack={() => props.setState({ ...props.state, phase: "handoff" })} />
         <div className="content">
           <GeoImagePanel
             location={location}
@@ -1132,7 +1078,7 @@ function GeoGame(props: {
   if (props.state.phase === "placingPin") {
     return (
       <section className="screen">
-        <Topbar title="回答する" eyebrow="日本マップGuessr" onBack={() => props.setState({ ...props.state, phase: "viewingImage" })} />
+        <Topbar title="回答する" eyebrow="日本マップ当て" onBack={() => props.setState({ ...props.state, phase: "viewingImage" })} />
         <div className="content">
           <LeafletAnswerMap value={props.state.pendingGuess} onChange={(pendingGuess) => props.setState({ ...props.state, pendingGuess })} />
           <button className="primary" type="button" onClick={() => props.state.pendingGuess && submitGeoGuess(props.state, props.setState, props.players, currentPlayer.id, props.state.pendingGuess)} disabled={!props.state.pendingGuess}>
@@ -1147,7 +1093,7 @@ function GeoGame(props: {
     const answers = roundAnswers(props.state);
     return (
       <section className="screen">
-        <Topbar title="結果" eyebrow="日本マップGuessr" />
+        <Topbar title="結果" eyebrow="日本マップ当て" />
         <div className="content">
           <div className="topic">正解地点とみんなの回答</div>
           <p className="muted">色付きの線は、正解地点から各プレイヤーの回答までの距離です。</p>
@@ -1162,7 +1108,7 @@ function GeoGame(props: {
 
   return (
     <section className="screen">
-      <Topbar title="結果" eyebrow="日本マップGuessr" />
+      <Topbar title="結果" eyebrow="日本マップ当て" />
       <div className="content">
         <div className="result-list">
           {[...props.players]

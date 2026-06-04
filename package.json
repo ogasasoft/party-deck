@@ -8,27 +8,31 @@
     "build": "tsc && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run --environment jsdom",
     "smoke": "tsx scripts/smoke-test.ts",
     "collect:mapillary": "tsx scripts/collect-mapillary-japan.ts",
     "collect:mapillary:sample": "tsx scripts/collect-mapillary-japan.ts --sample --install-public --reset",
     "audit:geo-images": "tsx scripts/audit-geo-images.ts",
+    "audit:storage": "tsx scripts/audit-local-storage.ts",
     "geo:qa": "tsx scripts/update-geo-qa.ts",
     "validate:geo": "tsx scripts/validate-geo-locations.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
-    "typescript": "latest",
+    "leaflet": "latest",
     "react": "latest",
     "react-dom": "latest",
     "react-router-dom": "latest",
-    "leaflet": "latest"
+    "typescript": "latest",
+    "vite": "latest"
   },
   "devDependencies": {
     "@types/leaflet": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "tsx": "latest"
+    "jsdom": "^29.1.1",
+    "tsx": "latest",
+    "vitest": "^4.1.8"
   }
 }

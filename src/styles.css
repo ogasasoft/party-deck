@@ -1287,6 +1287,28 @@ button.candidate-chip.active {
   font-weight: 900;
 }
 
+.ad-slot-live {
+  padding: 0;
+  overflow: hidden;
+}
+
+.legal-links {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.legal-links a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.legal-links a:hover {
+  color: var(--ink);
+}
+
 @media (min-width: 720px) {
   .app-shell {
     min-height: calc(100svh - 32px);

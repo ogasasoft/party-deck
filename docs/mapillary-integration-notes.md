@@ -12,7 +12,7 @@
 
 ## MVPでの判断
 
-日本マップGuessrはNo Move固定なので、初期実装ではMapillaryJSの可動ビューアではなく、Graph APIで取得した `thumb_2048_url` を静止画像として表示する。
+日本マップ当てはNo Move固定なので、初期実装ではMapillaryJSの可動ビューアではなく、Graph APIで取得した `thumb_2048_url` を静止画像として表示する。
 
 理由:
 

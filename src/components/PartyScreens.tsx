@@ -1,6 +1,11 @@
 import type * as React from "react";
+import { useEffect } from "react";
 import { canShowAds } from "../core/adPolicy";
 import type { Player } from "../core/types";
+
+const adsenseClient = import.meta.env.VITE_ADSENSE_CLIENT?.trim();
+const adsenseSlot = import.meta.env.VITE_ADSENSE_SLOT?.trim();
+let adsenseScriptPromise: Promise<void> | null = null;
 
 export function Topbar(props: { title: string; eyebrow?: string; onBack?: () => void; right?: React.ReactNode }) {
   return (
@@ -82,5 +87,50 @@ export function PlayerOrder(props: { playerIds: string[]; players: Player[] }) {
 
 export function AdSlot(props: { context: Parameters<typeof canShowAds>[0] }) {
   if (!canShowAds(props.context)) return null;
-  return <div className="ad-slot">広告エリア</div>;
+  if (!adsenseClient || !adsenseSlot) return <div className="ad-slot">広告エリア</div>;
+  return <AdSenseSlot context={props.context} />;
+}
+
+function AdSenseSlot(props: { context: Parameters<typeof canShowAds>[0] }) {
+  useEffect(() => {
+    void ensureAdSenseScript().then(() => {
+      const adsWindow = window as Window & { adsbygoogle?: unknown[] };
+      adsWindow.adsbygoogle = adsWindow.adsbygoogle ?? [];
+      adsWindow.adsbygoogle.push({});
+    });
+  }, [props.context]);
+
+  return (
+    <div className="ad-slot ad-slot-live">
+      <ins
+        className="adsbygoogle"
+        style={{ display: "block" }}
+        data-ad-client={adsenseClient}
+        data-ad-slot={adsenseSlot}
+        data-ad-format="auto"
+        data-full-width-responsive="true"
+      />
+    </div>
+  );
+}
+
+function ensureAdSenseScript() {
+  if (adsenseScriptPromise) return adsenseScriptPromise;
+  adsenseScriptPromise = new Promise<void>((resolve) => {
+    const existing = document.querySelector<HTMLScriptElement>("script[data-party-deck-adsense]");
+    if (existing) {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.async = true;
+    script.crossOrigin = "anonymous";
+    script.dataset.partyDeckAdsense = "true";
+    script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(adsenseClient ?? "")}`;
+    script.onload = () => resolve();
+    script.onerror = () => resolve();
+    document.head.appendChild(script);
+  });
+  return adsenseScriptPromise;
 }

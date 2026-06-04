@@ -9,7 +9,7 @@ GitHub: https://github.com/ogasasoft/party-deck
 
 MVPとして、1台のスマホで初期3ゲームと追加テーブルゲーム6本を最後まで触れ、道具なし飲み会ゲーム辞典も確認できる状態です。
 
-- 日本マップGuessr
+- 日本マップ当て
   - Mapillaryの東京周辺サンプル100件を `public/data/geo` に投入済み
   - 全員が同じ地点を順番に回答
   - No Move固定、デッキ選択なし
@@ -86,12 +86,16 @@ cp .env.example .env.local
 ```sh
 MAPILLARY_ACCESS_TOKEN=
 VITE_MAPILLARY_ACCESS_TOKEN=
+VITE_ADSENSE_CLIENT=
+VITE_ADSENSE_SLOT=
 ```
 
 用途:
 
 - `MAPILLARY_ACCESS_TOKEN`: 収集スクリプト用
 - `VITE_MAPILLARY_ACCESS_TOKEN`: ブラウザアプリでMapillary画像を取得するためのVite環境変数
+- `VITE_ADSENSE_CLIENT`: AdSense client id。未設定ならプレースホルダー表示
+- `VITE_ADSENSE_SLOT`: AdSense slot id。未設定ならプレースホルダー表示
 
 ## 開発コマンド
 
@@ -101,7 +105,9 @@ npm run smoke
 npm run typecheck
 npm run build
 npm run preview
+npm run test
 npm run audit:geo-images
+npm run audit:storage
 npm run geo:qa -- --id <location-id> --status rejected --dry-run
 ```
 
@@ -172,6 +178,7 @@ docs/
   table-game-expansion-task-list.md # 追加テーブルゲームの詳細タスク
   original-flow-alignment-plan.md # UI・本家フロー準拠改善計画
   frontend-flow-polish-plan.md    # 友人プレイテスト前のUI・ゲームフロー磨き計画
+  legal-and-ads-plan.md           # 広告、規約、プライバシー、Mapillary条件整理
   task-list.md                    # 現在のタスク状態
   maintenance-guide.md            # 保守引き継ぎ
 ```
@@ -246,6 +253,7 @@ Vercel側には `VITE_MAPILLARY_ACCESS_TOKEN` を環境変数として登録済�
 
 - 個人情報、ログイン、位置情報権限を追加しない。
 - 本家ゲームの文章、画像、音声、UI、お題をコピーしない。
+- 公開表示名は商標リスクを避けるため、公式名そのものよりParty Deck用の名称を優先する。
 - 追加テーブルゲームは `docs/table-game-expansion-plan.md` と `docs/table-game-expansion-task-list.md` の順番に沿って実装する。
 - ゲーム固有ロジックを他ゲームへ依存させない。
 - 新しいゲームは `GameDefinition` と `gameRegistry` 経由で追加する。
@@ -262,8 +270,6 @@ Vercel側には `VITE_MAPILLARY_ACCESS_TOKEN` を環境変数として登録済�
 
 - iPhone Safari / Android Chromeの実機QA
 - 実機の低速回線でのGuessr画像ロード、リトライ、代替地点切替確認
-- unit/integration test追加
-- 広告ネットワーク選定とSDK接続
-- 利用規約、プライバシーポリシー、Mapillary利用条件の確認
+- ブラウザ操作を含むintegration test追加
+- AdSense本番有効化用のpublisher client id、slot id、必要地域の同意管理
 - 追加テーブルゲーム6本のiPhone Safari / Android Chrome戻る操作QA
-- 全国Mapillary地点データ拡張

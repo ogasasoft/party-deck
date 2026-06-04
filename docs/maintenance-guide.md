@@ -12,7 +12,7 @@
 - Vercel `party-deck` で本番公開済み。
 - `VITE_MAPILLARY_ACCESS_TOKEN` はVercel環境変数に登録済み。
 - `https://party-deck.vercel.app` でトップ画面表示を確認済み。
-- 本番で日本マップGuessrのMapillary画像表示を確認済み。
+- 本番で日本マップ当てのMapillary画像表示を確認済み。
 - 4人で3ゲームを最後まで進めるQAを実施済み。
 - 飲み会ゲーム辞典を追加済み。道具なしゲームの検索、国フィルタ、下ネタ特別フィルタ、ルール閲覧ができます。
 
@@ -20,10 +20,9 @@
 
 - 実機のiPhone Safari / Android Chrome QA。
 - Guessr画像失敗時UXの実機低速回線QA。
-- unit / integration test環境。
-- 広告SDK接続。
-- 利用規約、プライバシーポリシー、Mapillary利用条件の最終確認。
-- 全国Mapillary地点データの拡張。
+- ブラウザ操作を含むintegration test。
+- AdSense本番有効化用のpublisher client id、slot id、必要地域の同意管理。
+- Mapillary全国地点データの拡張はユーザー判断により現時点では行わない。
 
 ## アーキテクチャの要点
 
@@ -122,7 +121,7 @@ Mapillary Graph APIのresponseをアプリ内部型 `StreetImage` に変換し�
 
 ## ゲーム別メモ
 
-### 日本マップGuessr
+### 日本マップ当て
 
 方針:
 
@@ -340,14 +339,16 @@ npm run validate:geo
 対象:
 
 - `src/core/adPolicy.ts`
-- `src/App.tsx` の `AdSlot`
-- 必要なSDK初期化ファイル
+- `src/components/PartyScreens.tsx` の `AdSlot`
+- `docs/legal-and-ads-plan.md`
 
 確認:
 
+- `VITE_ADSENSE_CLIENT` と `VITE_ADSENSE_SLOT` が両方あるときだけAdSense scriptを読み込む。
+- 未設定時はプレースホルダー表示に戻る。
 - 広告読み込み失敗でゲーム進行が止まらない。
 - 秘密情報、回答中、投票中、受け渡しに広告が出ない。
-- プライバシーポリシーや同意表示が必要か確認する。
+- `/privacy.html`、`/terms.html`、必要地域の同意表示を確認する。
 
 ## QAチェック
 
@@ -355,8 +356,10 @@ npm run validate:geo
 
 ```sh
 npm run smoke
+npm run test
 npm run typecheck
 npm run build
+npm run audit:storage
 ```
 
 手動確認:
@@ -365,7 +368,7 @@ npm run build
 - プレイヤーを2から8人で変更できる。
 - ナンバートークを結果まで進められる。
 - ワンナイト人狼を結果まで進められる。
-- 日本マップGuessrを結果まで進められる。
+- 日本マップ当てを結果まで進められる。
 - 飲み会ゲーム辞典で検索、国フィルタ、下ネタ特別フィルタが動く。
 - GuessrでMapillary画像とattributionが表示される。
 - 秘密情報画面でリロードしても直接秘密情報が表示されない。
