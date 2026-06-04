@@ -17,6 +17,7 @@ for (let index = 2; index < process.argv.length; index += 1) {
 }
 
 const baseUrl = new URL(args.get("base") ?? "https://party-deck.vercel.app");
+const requireAds = args.has("require-ads");
 const checks: CheckResult[] = [];
 
 function urlFor(path: string) {
@@ -54,6 +55,10 @@ check("bundle contains current geo title", bundle.includes("日本マップ当�
 check("bundle does not contain old geo title", !bundle.includes("日本マップGuessr"));
 check("bundle links privacy page", bundle.includes("privacy.html"));
 check("bundle links terms page", bundle.includes("terms.html"));
+if (requireAds) {
+  check("adsense client configured in production bundle", /ca-pub-\d{8,}/.test(bundle));
+  check("adsense slot configured in production bundle", /data-ad-slot/.test(bundle) && /[\"']\d{6,}[\"']/.test(bundle));
+}
 
 const privacy = await fetchText("/privacy.html");
 check("privacy content", privacy.text.includes("プライバシーポリシー") && privacy.text.includes("localStorage"));

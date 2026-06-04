@@ -15,6 +15,15 @@
 - 可能なら通常回線と低速回線の2回見る。
 - 端末の戻る操作、ブラウザ戻る、リロードを試す。
 - 友人テスト前は、実機確認後に `npm run audit:production` を通す。
+- AdSense有効化後は `npm run audit:production:ads` も通す。
+
+## 事前Browser QA記録
+
+2026-06-05にBrowserプラグインで本番URLをスマホ幅確認した。
+
+- iPhone相当 390x844: トップ表示、プレイヤー追加、飲み会ゲーム辞典検索、ナンバートーク秘密表示中リロード復帰を確認。コンソールerror/warnなし。横はみ出しなし。
+- Android相当 412x915: ナンバートーク受け渡し画面の復帰、コンソールerror/warnなし、横はみ出しなしを確認。
+- これは実機Safari/Chrome固有のtoolbar、戻るジェスチャー、低速回線、広告実配信を代替しない。P8-01、P8-02、P8-05、TGE-9-04、TGE-9-05は実機で別途確認する。
 
 ## iPhone Safari
 
@@ -101,6 +110,7 @@
 - 広告読み込みが失敗してもボタン操作、タイマー、地図、投票が止まらない。
 - `/privacy.html` と `/terms.html` が200で表示される。
 - `npm run audit:production` が通る。
+- `npm run audit:production:ads` が通る。
 
 合格基準:
 

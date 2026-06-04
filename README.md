@@ -108,6 +108,7 @@ npm run preview
 npm run test
 npm run audit:geo-images
 npm run audit:production
+npm run audit:production:ads
 npm run audit:storage
 npm run geo:qa -- --id <location-id> --status rejected --dry-run
 ```
@@ -115,9 +116,12 @@ npm run geo:qa -- --id <location-id> --status rejected --dry-run
 推奨確認順:
 
 1. `npm run smoke`
-2. `npm run typecheck`
-3. `npm run build`
-4. UI変更がある場合は `npm run dev` でスマホ幅を確認
+2. `npm run test`
+3. `npm run typecheck`
+4. `npm run build`
+5. UI変更がある場合は `npm run dev` でスマホ幅を確認
+
+`npm run audit:production:ads` はAdSense本番有効化後の確認用です。`VITE_ADSENSE_CLIENT` と `VITE_ADSENSE_SLOT` が本番bundleに入っていない状態では失敗します。
 
 ## ディレクトリ
 
@@ -272,6 +276,6 @@ Vercel側には `VITE_MAPILLARY_ACCESS_TOKEN` を環境変数として登録済�
 
 - iPhone Safari / Android Chromeの実機QA
 - 実機の低速回線でのGuessr画像ロード、リトライ、代替地点切替確認
-- ブラウザ操作を含む深いintegration test追加
+- 追加ゲーム全体を結果まで進める深いintegration test追加
 - AdSense本番有効化用のpublisher client id、slot id、必要地域の同意管理
 - 追加テーブルゲーム6本のiPhone Safari / Android Chrome戻る操作QA

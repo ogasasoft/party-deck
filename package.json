@@ -14,6 +14,7 @@
     "collect:mapillary:sample": "tsx scripts/collect-mapillary-japan.ts --sample --install-public --reset",
     "audit:geo-images": "tsx scripts/audit-geo-images.ts",
     "audit:production": "tsx scripts/audit-production.ts",
+    "audit:production:ads": "tsx scripts/audit-production.ts --require-ads",
     "audit:storage": "tsx scripts/audit-local-storage.ts",
     "geo:qa": "tsx scripts/update-geo-qa.ts",
     "validate:geo": "tsx scripts/validate-geo-locations.ts"

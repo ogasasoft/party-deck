@@ -51,6 +51,7 @@ npm run build
 npm run validate:geo
 npm run audit:geo-images
 npm run audit:production
+npm run audit:production:ads
 npm run audit:storage
 npm run geo:qa -- --id <location-id> --status rejected --dry-run
 ```
@@ -127,7 +128,7 @@ scripts/                       # 収集、検証、smoke
 
 広告表示判断は `src/core/adPolicy.ts` を通してください。
 AdSenseは `VITE_ADSENSE_CLIENT` と `VITE_ADSENSE_SLOT` が両方ある場合だけ読み込みます。未設定時はプレースホルダー表示です。
-AdSense本番有効化前に `/privacy.html`、`/terms.html`、必要地域の同意管理を確認してください。
+AdSense本番有効化前に `/privacy.html`、`/terms.html`、必要地域の同意管理を確認してください。有効化後は `npm run audit:production:ads` を通します。
 
 ## Mapillary運用
 
@@ -146,8 +147,10 @@ AdSense本番有効化前に `/privacy.html`、`/terms.html`、必要地域の�
 
 ```sh
 npm run smoke
+npm run test
 npm run typecheck
 npm run build
+npm run audit:production
 ```
 
 UI変更がある場合:

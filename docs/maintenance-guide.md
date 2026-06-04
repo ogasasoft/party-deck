@@ -6,7 +6,7 @@
 
 ## 現在の実装状態
 
-2026-05-18時点で、以下は完了しています。
+2026-06-05時点で、以下は完了しています。
 
 - GitHub `ogasasoft/party-deck` に初期MVPをpush済み。
 - Vercel `party-deck` で本番公開済み。
@@ -15,12 +15,14 @@
 - 本番で日本マップ当てのMapillary画像表示を確認済み。
 - 4人で3ゲームを最後まで進めるQAを実施済み。
 - 飲み会ゲーム辞典を追加済み。道具なしゲームの検索、国フィルタ、下ネタ特別フィルタ、ルール閲覧ができます。
+- `src/__tests__/app-flow.test.tsx` でプレイヤー追加、飲み会ゲーム辞典検索、ナンバートーク秘密表示中リロード復帰をDOM操作で検証済み。
+- Browserプラグインで本番URLをiPhone/Android相当のスマホ幅で事前QA済み。ただし実機確認の代替ではありません。
 
 未完了、または強化余地があるもの:
 
 - 実機のiPhone Safari / Android Chrome QA。
 - Guessr画像失敗時UXの実機低速回線QA。
-- ブラウザ操作を含むintegration test。
+- 追加ゲーム全体を結果まで進める深いintegration test。
 - AdSense本番有効化用のpublisher client id、slot id、必要地域の同意管理。
 - Mapillary全国地点データの拡張はユーザー判断により現時点では行わない。
 
@@ -349,6 +351,7 @@ npm run validate:geo
 - 広告読み込み失敗でゲーム進行が止まらない。
 - 秘密情報、回答中、投票中、受け渡しに広告が出ない。
 - `/privacy.html`、`/terms.html`、必要地域の同意表示を確認する。
+- 有効化後は `npm run audit:production:ads` を通す。未設定時に失敗するのは正常。
 
 ## QAチェック
 
@@ -360,6 +363,7 @@ npm run test
 npm run typecheck
 npm run build
 npm run audit:storage
+npm run audit:production
 ```
 
 手動確認:

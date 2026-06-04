@@ -24,6 +24,7 @@ MVPの第一候補はGoogle AdSense。
 - `src/components/PartyScreens.tsx` の `AdSlot` は、`VITE_ADSENSE_CLIENT` と `VITE_ADSENSE_SLOT` が両方ある場合だけAdSense scriptを読み込む。
 - 環境変数が空の場合は、従来通りの「広告エリア」プレースホルダーを表示する。
 - script読み込みに失敗してもresolveして、ゲーム操作を止めない。
+- `npm run audit:production:ads` は本番bundleにAdSense client idとslot idが入っているかを強制確認する。有効化前は失敗するのが正常。
 
 本番でAdSenseを有効にする前に必要なもの:
 
@@ -32,6 +33,7 @@ MVPの第一候補はGoogle AdSense。
 - ad slot id。
 - `/privacy.html` と `/terms.html` の公開確認。
 - 欧州経済領域、英国、スイスに広告配信する場合のGoogle認定CMP対応。
+- Vercel本番環境へ `VITE_ADSENSE_CLIENT` と `VITE_ADSENSE_SLOT` を設定したあと、再デプロイして `npm run audit:production:ads` を通す。
 
 ## プライバシーポリシー
 

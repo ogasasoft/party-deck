@@ -40,13 +40,15 @@
 - unit test基盤を追加し、保存、game registry、広告、リロード保護、主要ゲーム判定を検証
 - プライバシーポリシー、利用規約、広告/法務整理docsを追加
 - 本番URL監査 `npm run audit:production` と実機QAチェックシートを追加
+- App DOMフローテストでプレイヤー追加、飲み会ゲーム辞典検索、ナンバートーク秘密表示リロード復帰を検証
+- Browserスマホ幅QAで本番トップ、プレイヤー設定、辞典検索、ナンバートーク秘密復帰を確認
 
 まだリリース未満の理由:
 
 - iPhone Safari / Android Chromeの実機QAが未完了
 - Guessr画像失敗時UXの実機低速回線QAが未完了
 - AdSense本番有効化にはpublisher client id、slot id、必要地域の同意管理が未設定
-- 実機操作を伴うintegration testはまだ薄い
+- 追加ゲーム全体を結果まで進めるintegration testはまだ薄い
 
 ## P0 土台
 
@@ -118,7 +120,7 @@
 - [x] P4-07 NumberDealerとNumberTalkJudgeをテストする
 - [x] P4-08 RoleSetBuilder、CardDealer、WerewolfJudgeをテストする
 - [x] P4-09 AdPolicyの表示可否をテストする
-- [~] P4-10 各ゲームを開始から結果まで進めるintegration testを追加する
+- [~] P4-10 各ゲームを開始から結果まで進めるintegration testを追加する。App DOMテストでプレイヤー追加、辞典検索、ナンバートーク秘密リロード復帰は追加済み
 - [x] P4-11 リロード後に秘密情報が直接表示されないことをテストする
 
 ## P5 ナンバートークを仕上げる
@@ -158,7 +160,7 @@
 - [x] P7-01 広告表示可能画面に広告枠を置く
 - [x] P7-02 広告禁止フェーズで広告を出さない
 - [x] P7-03 広告ネットワークを選定する
-- [~] P7-04 広告SDKを接続する
+- [~] P7-04 広告SDKを接続する。AdSense env連携と本番強制監査 `npm run audit:production:ads` は追加済み、実IDとCMPは未設定
 - [x] P7-05 広告読み込み失敗時にゲーム進行を止めない
 - [x] P7-06 プライバシーポリシー要否を整理する
 - [x] P7-07 利用規約要否を整理する
@@ -168,8 +170,8 @@
 
 ## P8 リリース前QA
 
-- [ ] P8-01 iPhone Safariで縦画面確認する
-- [ ] P8-02 Android Chromeで縦画面確認する
+- [ ] P8-01 iPhone Safariで縦画面確認する。Browser 390x844の事前QAは通過、実機Safariは未実施
+- [ ] P8-02 Android Chromeで縦画面確認する。Browser 412x915の事前QAは通過、実機Chromeは未実施
 - [x] P8-03 4人で3ゲームを最後まで通しプレイする
 - [x] P8-04 8人でプレイヤー設定と受け渡しを確認する
 - [~] P8-05 低速回線でGuessr画像表示を確認する
@@ -253,8 +255,8 @@
 1. `docs/device-qa-checklist.md` に沿って、P8-01、P8-02、P8-05でiPhone Safari / Android Chrome / 低速回線の実機QAを行う
 2. `docs/device-qa-checklist.md` に沿って、TGE-9-04、TGE-9-05で追加ゲーム6本の実機戻る操作QAを行う
 3. P3-04で初期3ゲーム側も含めた追加の画面分割、共通component化を進める
-4. P4-10でブラウザ操作を含むintegration testを追加する
-5. AdSenseのpublisher client id、slot id、必要地域の同意管理を本番設定する
+4. P4-10で追加ゲーム全体を結果まで進めるintegration testを追加する
+5. AdSenseのpublisher client id、slot id、必要地域の同意管理を本番設定し、`npm run audit:production:ads` を通す
 
 ## 運用ルール
 
