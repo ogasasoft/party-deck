@@ -25,14 +25,23 @@ function urlFor(path: string) {
 }
 
 async function fetchText(path: string) {
-  const response = await fetch(urlFor(path), { redirect: "follow" });
-  const text = await response.text();
-  checks.push({
-    name: `${path} status`,
-    ok: response.ok,
-    detail: `${response.status} ${response.statusText}`
-  });
-  return { response, text };
+  try {
+    const response = await fetch(urlFor(path), { redirect: "follow" });
+    const text = await response.text();
+    checks.push({
+      name: `${path} status`,
+      ok: response.ok,
+      detail: `${response.status} ${response.statusText}`
+    });
+    return { response, text };
+  } catch (error) {
+    checks.push({
+      name: `${path} status`,
+      ok: false,
+      detail: error instanceof Error ? error.message : String(error)
+    });
+    return { response: null, text: "" };
+  }
 }
 
 function check(name: string, ok: boolean, detail?: string) {
