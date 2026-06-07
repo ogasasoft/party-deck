@@ -5,7 +5,7 @@ import { RankingAnswerCategory, RankingAnswerPrompt, rankingAnswerPrompts } from
 export type RankingAnswersConfig = {
   promptCategory: "all" | RankingAnswerCategory;
   roundCount: 5;
-  mistakeLimit: 5;
+  mistakeLimit: number;
 };
 
 export type RankingAnswersPhase = "numberHandoff" | "numberReveal" | "answer" | "order" | "roundResult" | "final";
@@ -43,6 +43,7 @@ export function defaultRankingAnswersConfig(): RankingAnswersConfig {
 }
 
 export function createRankingAnswersState(players: Player[], config: RankingAnswersConfig, seed: string): RankingAnswersState {
+  const normalizedConfig = { ...config, mistakeLimit: players.length };
   const prompts = sample(getRankingPromptPool(config.promptCategory), config.roundCount, `${seed}:ranking-prompts`);
   const captainOrder = shuffle(
     players.map((player) => player.id),
@@ -50,11 +51,11 @@ export function createRankingAnswersState(players: Player[], config: RankingAnsw
   );
   return {
     phase: "numberHandoff",
-    config,
+    config: normalizedConfig,
     currentRoundIndex: 0,
     currentPlayerIndex: 0,
     numberRevealDonePlayerIds: [],
-    rounds: Array.from({ length: config.roundCount }, (_, roundIndex) => {
+    rounds: Array.from({ length: normalizedConfig.roundCount }, (_, roundIndex) => {
       const numbers = sample(
         Array.from({ length: 10 }, (_item, index) => index + 1),
         players.length,

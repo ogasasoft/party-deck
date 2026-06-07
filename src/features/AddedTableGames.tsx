@@ -22,7 +22,7 @@ import {
 } from "../games/insiderGuess";
 import {
   getSpyLocationChoices,
-  hasSpyLocationAccusationMajority,
+  hasSpyLocationAccusationConsensus,
   isSpyLocationSpy,
   judgeSpyLocation,
   submitSpyLocationAccusationVote,
@@ -48,6 +48,7 @@ import {
 import {
   currentDrawingPlayerId,
   isFakeArtist,
+  isFakeArtistQuestionMaster,
   judgeFakeArtist,
   submitFakeArtistVote,
   tallyFakeArtistVotes,
@@ -562,7 +563,15 @@ function SpyLocationGame(props: {
                 key={player.id}
                 className="vote-button"
                 type="button"
-                onClick={() => props.setState({ ...props.state, accusedPlayerId: player.id, accusationVotes: [], currentPlayerIndex: 0, phase: "accusationVoteHandoff" })}
+                onClick={() =>
+                  props.setState({
+                    ...props.state,
+                    accusedPlayerId: player.id,
+                    accusationVotes: [],
+                    currentPlayerIndex: firstSpyAccusationVoterIndex(props.players, player.id),
+                    phase: "accusationVoteHandoff"
+                  })
+                }
               >
                 {player.nickname}
               </button>
@@ -997,6 +1006,7 @@ function FakeArtistGame(props: {
 }) {
   const currentPlayer = props.players[props.state.currentPlayerIndex] ?? props.players[0];
   const drawingPlayer = props.players.find((player) => player.id === currentDrawingPlayerId(props.state)) ?? props.players[0];
+  const questionMaster = props.players.find((player) => player.id === props.state.questionMasterPlayerId);
   const fakeArtist = props.players.find((player) => player.id === props.state.fakeArtistPlayerId);
 
   if (props.state.phase === "handoff") {
@@ -1005,13 +1015,20 @@ function FakeArtistGame(props: {
 
   if (props.state.phase === "revealSecret") {
     const isFake = isFakeArtist(props.state, currentPlayer.id);
+    const isQuestionMaster = isFakeArtistQuestionMaster(props.state, currentPlayer.id);
     return (
       <SecretRevealScreen
         title="お題確認"
         eyebrow="エセアーティスト"
         player={currentPlayer}
-        headline={isFake ? "あなたは偽物" : props.state.topic.text}
-        detail={isFake ? `カテゴリ: ${props.state.topic.categoryLabel}` : "お題を知られすぎないよう、自然な線を描きます。"}
+        headline={isQuestionMaster ? "あなたは出題者" : isFake ? "あなたは偽物" : props.state.topic.text}
+        detail={
+          isQuestionMaster
+            ? `お題: ${props.state.topic.text} / カテゴリ: ${props.state.topic.categoryLabel}。描かずに進行を見守ります。`
+            : isFake
+              ? `カテゴリ: ${props.state.topic.categoryLabel}`
+              : "お題を知られすぎないよう、自然な線を描きます。"
+        }
         tone={isFake ? "danger" : "default"}
         onNext={() => {
           const viewed = [...new Set([...props.state.revealViewedPlayerIds, currentPlayer.id])];
@@ -1045,7 +1062,7 @@ function FakeArtistGame(props: {
                 ...props.state,
                 strokes: [...props.state.strokes, stroke],
                 currentStrokeIndex: isLast ? props.state.currentStrokeIndex : props.state.currentStrokeIndex + 1,
-                currentPlayerIndex: 0,
+                currentPlayerIndex: isLast ? firstFakeArtistVoterIndex(props.players, props.state.questionMasterPlayerId) : 0,
                 phase: isLast ? "voteHandoff" : "draw"
               });
             }}
@@ -1065,14 +1082,15 @@ function FakeArtistGame(props: {
         title="投票"
         eyebrow="エセアーティスト"
         currentPlayer={currentPlayer}
-        candidates={props.players.filter((player) => player.id !== currentPlayer.id)}
+        candidates={props.players.filter((player) => player.id !== currentPlayer.id && player.id !== props.state.questionMasterPlayerId)}
         onVote={(targetPlayerId) => {
           const next = submitFakeArtistVote(props.state, { fromPlayerId: currentPlayer.id, targetPlayerId });
-          const isLast = props.state.currentPlayerIndex >= props.players.length - 1;
+          const nextVoterIndex = nextFakeArtistVoterIndex(props.players, props.state.questionMasterPlayerId, props.state.currentPlayerIndex);
+          const isLast = nextVoterIndex === -1;
           const judged = judgeFakeArtist(next);
           props.setState({
             ...next,
-            currentPlayerIndex: isLast ? 0 : props.state.currentPlayerIndex + 1,
+            currentPlayerIndex: isLast ? 0 : nextVoterIndex,
             phase: isLast ? (judged.caught ? "fakeGuess" : "result") : "voteHandoff"
           });
         }}
@@ -1121,20 +1139,26 @@ function FakeArtistGame(props: {
           <strong>偽物</strong>
           <span>{fakeArtist?.nickname ?? "不明"}</span>
         </div>
+        <div className="note">
+          <strong>出題者</strong>
+          <span>{questionMaster?.nickname ?? "不明"}</span>
+        </div>
         <div className="result-list">
-          {props.players.map((player) => {
-            const voted = props.state.votes.find((vote) => vote.fromPlayerId === player.id);
-            return (
-              <div key={player.id} className="result-row">
-                <span className="dot" style={{ "--chip-color": player.color } as React.CSSProperties} />
-                <strong>{player.nickname}</strong>
-                <span className="score">
-                  {voteTally.counts.get(player.id) ?? 0}票
-                  <small>投票: {props.players.find((item) => item.id === voted?.targetPlayerId)?.nickname ?? "未投票"}</small>
-                </span>
-              </div>
-            );
-          })}
+          {props.players
+            .filter((player) => player.id !== props.state.questionMasterPlayerId)
+            .map((player) => {
+              const voted = props.state.votes.find((vote) => vote.fromPlayerId === player.id);
+              return (
+                <div key={player.id} className="result-row">
+                  <span className="dot" style={{ "--chip-color": player.color } as React.CSSProperties} />
+                  <strong>{player.nickname}</strong>
+                  <span className="score">
+                    {voteTally.counts.get(player.id) ?? 0}票
+                    <small>投票: {props.players.find((item) => item.id === voted?.targetPlayerId)?.nickname ?? "未投票"}</small>
+                  </span>
+                </div>
+              );
+            })}
         </div>
         <AdSlot context="result" />
         <FinalResultActions onRestart={props.onRestart} onHome={props.onHome} />
@@ -1154,17 +1178,41 @@ function submitInsiderVote(state: InsiderGuessState, setState: (state: InsiderGu
 }
 
 function submitSpyAccusationVote(state: SpyLocationState, setState: (state: SpyLocationState) => void, players: Player[], agrees: boolean) {
-  const voter = players[state.currentPlayerIndex] ?? players[0];
+  const current = players[state.currentPlayerIndex];
+  const voter = current?.id !== state.accusedPlayerId ? current : players.find((player) => player.id !== state.accusedPlayerId) ?? players[0];
   const next = submitSpyLocationAccusationVote(state, { fromPlayerId: voter.id, agrees });
-  const isLast = state.currentPlayerIndex >= players.length - 1;
-  const hasMajority = hasSpyLocationAccusationMajority(next, players.length);
+  const nextVoterIndex = nextSpyAccusationVoterIndex(players, state.accusedPlayerId, state.currentPlayerIndex);
+  const isLast = nextVoterIndex === -1;
+  const hasConsensus = hasSpyLocationAccusationConsensus(next, players.length);
   setState({
     ...next,
-    currentPlayerIndex: isLast ? 0 : state.currentPlayerIndex + 1,
-    phase: isLast ? (hasMajority ? "result" : "question") : "accusationVoteHandoff",
-    accusationVotes: isLast && !hasMajority ? [] : next.accusationVotes,
-    accusedPlayerId: isLast && !hasMajority ? undefined : next.accusedPlayerId
+    currentPlayerIndex: isLast ? 0 : nextVoterIndex,
+    phase: isLast ? (hasConsensus ? "result" : "question") : "accusationVoteHandoff",
+    accusationVotes: isLast && !hasConsensus ? [] : next.accusationVotes,
+    accusedPlayerId: isLast && !hasConsensus ? undefined : next.accusedPlayerId
   });
+}
+
+function firstSpyAccusationVoterIndex(players: Player[], accusedPlayerId: string) {
+  return Math.max(
+    0,
+    players.findIndex((player) => player.id !== accusedPlayerId)
+  );
+}
+
+function nextSpyAccusationVoterIndex(players: Player[], accusedPlayerId: string | undefined, currentIndex: number) {
+  return players.findIndex((player, index) => index > currentIndex && player.id !== accusedPlayerId);
+}
+
+function firstFakeArtistVoterIndex(players: Player[], questionMasterPlayerId: string) {
+  return Math.max(
+    0,
+    players.findIndex((player) => player.id !== questionMasterPlayerId)
+  );
+}
+
+function nextFakeArtistVoterIndex(players: Player[], questionMasterPlayerId: string, currentIndex: number) {
+  return players.findIndex((player, index) => index > currentIndex && player.id !== questionMasterPlayerId);
 }
 
 function formatInsiderRole(role: ReturnType<typeof getInsiderRole>) {

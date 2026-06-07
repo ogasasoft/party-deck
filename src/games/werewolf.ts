@@ -54,6 +54,7 @@ export type WerewolfState = {
   centerCards: [RoleId, RoleId];
   roleRevealDonePlayerIds: string[];
   nightActions: WerewolfNightAction[];
+  nightResolved?: boolean;
   votes: WerewolfVote[];
 };
 
@@ -134,6 +135,7 @@ export function createWerewolfState(players: Player[], config: WerewolfConfig, s
     centerCards: [cards[players.length], cards[players.length + 1]],
     roleRevealDonePlayerIds: [],
     nightActions: [],
+    nightResolved: false,
     votes: []
   };
 }
@@ -143,11 +145,22 @@ export function applyRobberAction(state: WerewolfState, actorId: string, targetP
     replaceNightAction(state, { type: "robber", actorId, skipped: true, newRole: state.playerCurrentCards[actorId] });
     return state;
   }
-  const actorRole = state.playerCurrentCards[actorId];
   const newRole = state.playerCurrentCards[targetPlayerId];
-  state.playerCurrentCards[actorId] = state.playerCurrentCards[targetPlayerId];
-  state.playerCurrentCards[targetPlayerId] = actorRole;
   replaceNightAction(state, { type: "robber", actorId, targetPlayerId, newRole });
+  return state;
+}
+
+export function resolveWerewolfNightActions(state: WerewolfState) {
+  if (state.nightResolved) return state;
+  state.nightActions
+    .filter((action): action is Extract<WerewolfNightAction, { type: "robber" }> => action.type === "robber")
+    .forEach((action) => {
+      if (!action.actorId || !action.targetPlayerId || action.skipped) return;
+      const actorRole = state.playerCurrentCards[action.actorId];
+      state.playerCurrentCards[action.actorId] = state.playerCurrentCards[action.targetPlayerId];
+      state.playerCurrentCards[action.targetPlayerId] = actorRole;
+    });
+  state.nightResolved = true;
   return state;
 }
 

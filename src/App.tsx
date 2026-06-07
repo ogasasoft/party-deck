@@ -59,6 +59,7 @@ import {
   judgeWerewolf,
   normalizeWerewolfConfig,
   recordWerewolfAction,
+  resolveWerewolfNightActions,
   WEREWOLF_ROLE_IDS,
   type RoleCounts,
   type RoleId,
@@ -922,11 +923,12 @@ function SetupScreen(props: {
           <>
             <RuleDetails
               title="ルール"
-              summary="1人だけお題を知らないまま、全員で1本ずつ線を描いて偽物を探します。"
+              summary="出題者以外が1本ずつ線を描き、1人だけお題を知らない偽物を探します。"
               details={[
+                "出題者はカテゴリとお題を見ますが、描画と投票には参加しません。",
                 "本物はカテゴリとお題を見ます。偽物はカテゴリだけを見ます。",
-                "全員が2周、1本ずつ線を描きます。",
-                "投票で偽物を見つけても、偽物がお題を当てたら偽物側の勝利です。"
+                "出題者以外が2周、1本ずつ線を描きます。",
+                "投票で偽物が単独最多票でも、偽物がお題を当てたら偽物側の勝利です。"
               ]}
             />
             <SettingRow title="お題" detail="カテゴリを選択">
@@ -1541,10 +1543,14 @@ function submitWerewolfVote(state: WerewolfState, setState: (state: WerewolfStat
 }
 
 function advanceWerewolfNightPlayer(state: WerewolfState, setState: (state: WerewolfState) => void, players: Player[]) {
-  const isLast = state.currentPlayerIndex >= players.length - 1;
+  const next = structuredClone(state);
+  const isLast = next.currentPlayerIndex >= players.length - 1;
+  if (isLast) {
+    resolveWerewolfNightActions(next);
+  }
   setState({
-    ...state,
-    currentPlayerIndex: isLast ? 0 : state.currentPlayerIndex + 1,
+    ...next,
+    currentPlayerIndex: isLast ? 0 : next.currentPlayerIndex + 1,
     phase: isLast ? "discussion" : "nightHandoff"
   });
 }
@@ -2142,7 +2148,7 @@ function sanitizeLoadedNumberTalkState(state: NumberTalkState | null): NumberTal
 }
 
 function sanitizeLoadedWerewolfState(state: WerewolfState | null): WerewolfState | null {
-  return sanitizeReloadPhase(
+  const next = sanitizeReloadPhase(
     state,
     {
       roleReveal: "roleHandoff",
@@ -2150,6 +2156,17 @@ function sanitizeLoadedWerewolfState(state: WerewolfState | null): WerewolfState
     },
     [{ prefix: "night", fallback: "nightHandoff" }]
   );
+  if (!next) return null;
+  if (typeof next.nightResolved !== "boolean") {
+    next.nightResolved = hasLegacyRobberSwapAlreadyApplied(next) || ["discussion", "voteHandoff", "vote", "result"].includes(next.phase);
+  }
+  return next;
+}
+
+function hasLegacyRobberSwapAlreadyApplied(state: WerewolfState) {
+  const robberAction = state.nightActions.find((action): action is Extract<WerewolfNightAction, { type: "robber" }> => action.type === "robber");
+  if (!robberAction?.actorId || !robberAction.targetPlayerId || robberAction.skipped || !robberAction.newRole) return false;
+  return state.playerCurrentCards[robberAction.actorId] === robberAction.newRole && state.playerCurrentCards[robberAction.targetPlayerId] === state.playerInitialCards[robberAction.actorId];
 }
 
 function sanitizeLoadedGeoState(state: GeoState | null): GeoState | null {
@@ -2209,8 +2226,14 @@ function sanitizeLoadedRankingAnswersState(state: RankingAnswersState | null): R
 }
 
 function sanitizeLoadedFakeArtistState(state: FakeArtistState | null): FakeArtistState | null {
-  return sanitizeReloadPhase(state, {
+  const next = sanitizeReloadPhase(state, {
     revealSecret: "handoff",
     vote: "voteHandoff"
   });
+  if (!next) return null;
+  if (!next.questionMasterPlayerId) {
+    next.questionMasterPlayerId = next.drawOrder.find((playerId) => playerId !== next.fakeArtistPlayerId) ?? next.drawOrder[0] ?? next.fakeArtistPlayerId;
+  }
+  next.drawOrder = next.drawOrder.filter((playerId) => playerId !== next.questionMasterPlayerId);
+  return next;
 }

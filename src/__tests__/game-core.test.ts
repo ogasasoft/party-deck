@@ -21,15 +21,21 @@ import { createGeoAnswer, createGeoState, currentGeoLocation, defaultGeoConfig, 
 import { createNumberTalkState, defaultNumberTalkConfig, isNumberOrderCorrect, type NumberTalkState } from "../games/numberTalk";
 import {
   applyRobberAction,
+  applySeerAction,
   buildRoleSet,
   countRoleCards,
   defaultWerewolfConfig,
   judgeWerewolf,
   normalizeWerewolfConfig,
   normalizeRoleCounts,
+  resolveWerewolfNightActions,
   type RoleCounts,
   type WerewolfState
 } from "../games/werewolf";
+import { createRankingAnswersState, defaultRankingAnswersConfig } from "../games/rankingAnswers";
+import { hasSpyLocationAccusationConsensus, type SpyLocationState } from "../games/spyLocation";
+import { judgeWordInfiltrator, type WordInfiltratorState } from "../games/wordInfiltrator";
+import { createFakeArtistState, judgeFakeArtist, type FakeArtistState } from "../games/fakeArtist";
 
 const players = DEFAULT_PLAYERS.slice(0, 4);
 const fivePlayers: Player[] = [...players, { id: "p5", nickname: "ソラ", color: "#e76f51" }];
@@ -173,8 +179,111 @@ describe("Werewolf", () => {
 
     expect(judgeWerewolf(state, players).winningTeam).toBe("human");
     applyRobberAction(state, "p1", "p2");
+    expect(state.playerCurrentCards.p1).toBe("robber");
+    expect(state.playerCurrentCards.p2).toBe("werewolf");
+    resolveWerewolfNightActions(state);
     expect(state.playerCurrentCards.p1).toBe("werewolf");
     expect(state.playerCurrentCards.p2).toBe("robber");
+  });
+
+  it("keeps seer information in official order even when the phone is passed by player order", () => {
+    const state: WerewolfState = {
+      phase: "nightAction" as const,
+      config: defaultWerewolfConfig(),
+      currentPlayerIndex: 0,
+      playerInitialCards: { p1: "robber", p2: "seer", p3: "werewolf", p4: "villager" },
+      playerCurrentCards: { p1: "robber", p2: "seer", p3: "werewolf", p4: "villager" },
+      centerCards: ["villager", "villager"] as ["villager", "villager"],
+      roleRevealDonePlayerIds: [],
+      nightActions: [],
+      votes: []
+    };
+
+    applyRobberAction(state, "p1", "p3");
+    applySeerAction(state, "p2", { mode: "player", targetPlayerId: "p3" });
+
+    const seerAction = state.nightActions.find((action) => action.type === "seer");
+    expect(seerAction && "seenRole" in seerAction ? seerAction.seenRole : null).toBe("werewolf");
+
+    resolveWerewolfNightActions(state);
+    expect(state.playerCurrentCards.p1).toBe("werewolf");
+    expect(state.playerCurrentCards.p3).toBe("robber");
+  });
+});
+
+describe("Reference-aligned table game rules", () => {
+  it("uses one Ranking Answers mistake token per player", () => {
+    const state = createRankingAnswersState(players, defaultRankingAnswersConfig(), "ranking-token-test");
+    expect(state.config.mistakeLimit).toBe(players.length);
+  });
+
+  it("requires everyone except the accused to agree in Spy Location accusations", () => {
+    const state = {
+      phase: "accusationVote" as const,
+      config: { locationCategory: "all" as const, questionTimeSec: 480 as const },
+      location: { id: "airport", name: "空港", category: "travel" as const, categoryLabel: "移動", hint: "移動が多い場所", enabled: true },
+      spyPlayerId: "p1",
+      currentPlayerIndex: 0,
+      revealViewedPlayerIds: [],
+      accusedPlayerId: "p1",
+      spyGuessLocationId: undefined,
+      accusationVotes: [
+        { fromPlayerId: "p2", agrees: true },
+        { fromPlayerId: "p3", agrees: true },
+        { fromPlayerId: "p4", agrees: false }
+      ]
+    } satisfies SpyLocationState;
+
+    expect(hasSpyLocationAccusationConsensus(state, players.length)).toBe(false);
+    expect(
+      hasSpyLocationAccusationConsensus(
+        {
+          ...state,
+          accusationVotes: state.accusationVotes.map((vote) => ({ ...vote, agrees: true }))
+        },
+        players.length
+      )
+    ).toBe(true);
+  });
+
+  it("does not catch the word infiltrator on a tied top vote", () => {
+    const state = {
+      phase: "result" as const,
+      config: { topicCategory: "all" as const, discussionTimeSec: 180 as const },
+      topic: { id: "fruit", category: "food" as const, categoryLabel: "食べ物", secretWord: "りんご", enabled: true },
+      infiltratorPlayerId: "p1",
+      currentPlayerIndex: 0,
+      revealViewedPlayerIds: [],
+      clueOrder: players.map((player) => player.id),
+      votes: [
+        { fromPlayerId: "p1", targetPlayerId: "p2" },
+        { fromPlayerId: "p2", targetPlayerId: "p1" },
+        { fromPlayerId: "p3", targetPlayerId: "p1" },
+        { fromPlayerId: "p4", targetPlayerId: "p2" }
+      ]
+    } satisfies WordInfiltratorState;
+
+    expect(judgeWordInfiltrator(state).caught).toBe(false);
+  });
+
+  it("keeps the Fake Artist question master out of drawing and treats tied top votes as not caught", () => {
+    const state = createFakeArtistState(fivePlayers, { topicCategory: "all", strokesPerPlayer: 2 }, "fake-artist-qm-test");
+    expect(state.fakeArtistPlayerId).not.toBe(state.questionMasterPlayerId);
+    expect(state.drawOrder).not.toContain(state.questionMasterPlayerId);
+
+    const artistVoters = fivePlayers.filter((player) => player.id !== state.questionMasterPlayerId);
+    const otherTargetId = artistVoters.find((player) => player.id !== state.fakeArtistPlayerId)?.id ?? artistVoters[0].id;
+    const tiedState = {
+      ...state,
+      votes: [
+        { fromPlayerId: artistVoters[0].id, targetPlayerId: state.fakeArtistPlayerId },
+        { fromPlayerId: artistVoters[1].id, targetPlayerId: state.fakeArtistPlayerId },
+        { fromPlayerId: artistVoters[2].id, targetPlayerId: otherTargetId },
+        { fromPlayerId: artistVoters[3].id, targetPlayerId: otherTargetId }
+      ]
+    } satisfies FakeArtistState;
+
+    expect(judgeFakeArtist(tiedState).caught).toBe(false);
   });
 });
 

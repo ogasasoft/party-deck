@@ -68,12 +68,14 @@ export function submitSpyLocationAccusationVote(state: SpyLocationState, vote: S
   };
 }
 
-export function hasSpyLocationAccusationMajority(state: SpyLocationState, playerCount: number) {
-  return state.accusationVotes.filter((vote) => vote.agrees).length > playerCount / 2;
+export function hasSpyLocationAccusationConsensus(state: SpyLocationState, playerCount: number) {
+  const requiredVotes = Math.max(0, playerCount - 1);
+  const eligibleVotes = state.accusationVotes.filter((vote) => vote.fromPlayerId !== state.accusedPlayerId);
+  return eligibleVotes.length >= requiredVotes && eligibleVotes.every((vote) => vote.agrees);
 }
 
 export function judgeSpyLocation(state: SpyLocationState, playerCount: number): SpyLocationResult {
-  if (state.accusedPlayerId && hasSpyLocationAccusationMajority(state, playerCount)) {
+  if (state.accusedPlayerId && hasSpyLocationAccusationConsensus(state, playerCount)) {
     if (state.accusedPlayerId === state.spyPlayerId) {
       return { winningTeam: "locals", reason: "告発でスパイを見つけたため、場所を知る側の勝利です。" };
     }

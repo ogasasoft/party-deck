@@ -29,6 +29,7 @@ export type FakeArtistState = {
   phase: FakeArtistPhase;
   config: FakeArtistConfig;
   topic: FakeArtistTopic;
+  questionMasterPlayerId: string;
   fakeArtistPlayerId: string;
   currentPlayerIndex: number;
   revealViewedPlayerIds: string[];
@@ -57,15 +58,18 @@ export function defaultFakeArtistConfig(): FakeArtistConfig {
 export function createFakeArtistState(players: Player[], config: FakeArtistConfig, seed: string): FakeArtistState {
   const topics = fakeArtistTopics.filter((topic) => topic.enabled && (config.topicCategory === "all" || topic.category === config.topicCategory));
   const topic = sample(topics.length ? topics : fakeArtistTopics.filter((item) => item.enabled), 1, `${seed}:fake-topic`)[0];
-  const fakeArtistPlayerId = sample(players, 1, `${seed}:fake-player`)[0]?.id ?? players[0]?.id ?? "";
+  const questionMasterPlayerId = sample(players, 1, `${seed}:question-master`)[0]?.id ?? players[0]?.id ?? "";
+  const artistPlayers = players.filter((player) => player.id !== questionMasterPlayerId);
+  const fakeArtistPlayerId = sample(artistPlayers, 1, `${seed}:fake-player`)[0]?.id ?? artistPlayers[0]?.id ?? players[0]?.id ?? "";
   const baseOrder = shuffle(
-    players.map((player) => player.id),
+    artistPlayers.map((player) => player.id),
     `${seed}:draw-order`
   );
   return {
     phase: "handoff",
     config,
     topic,
+    questionMasterPlayerId,
     fakeArtistPlayerId,
     currentPlayerIndex: 0,
     revealViewedPlayerIds: [],
@@ -78,6 +82,10 @@ export function createFakeArtistState(players: Player[], config: FakeArtistConfi
 
 export function isFakeArtist(state: FakeArtistState, playerId: string) {
   return state.fakeArtistPlayerId === playerId;
+}
+
+export function isFakeArtistQuestionMaster(state: FakeArtistState, playerId: string) {
+  return state.questionMasterPlayerId === playerId;
 }
 
 export function currentDrawingPlayerId(state: FakeArtistState) {
@@ -106,7 +114,7 @@ export function tallyFakeArtistVotes(state: FakeArtistState) {
 
 export function judgeFakeArtist(state: FakeArtistState): FakeArtistResult {
   const { topVotedPlayerIds } = tallyFakeArtistVotes(state);
-  const caught = topVotedPlayerIds.includes(state.fakeArtistPlayerId);
+  const caught = topVotedPlayerIds.length === 1 && topVotedPlayerIds[0] === state.fakeArtistPlayerId;
   const guessCorrect = normalizeGuess(state.fakeGuess ?? "") === normalizeGuess(state.topic.text);
   const fakeWins = !caught || guessCorrect;
   return {

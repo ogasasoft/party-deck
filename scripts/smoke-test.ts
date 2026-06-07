@@ -18,10 +18,10 @@ import { createNumberTalkState, defaultNumberTalkConfig, isNumberOrderCorrect } 
 import { rankingAnswerPrompts } from "../src/data/rankingAnswerPrompts";
 import { computeRankingMistakes, createRankingAnswersState, currentRankingRound, defaultRankingAnswersConfig, getRankingNumberForPlayer, totalRankingMistakes, updateCurrentRankingRound } from "../src/games/rankingAnswers";
 import { spyLocations } from "../src/data/spyLocations";
-import { createSpyLocationState, defaultSpyLocationConfig, judgeSpyLocation, submitSpyLocationAccusationVote, type SpyLocationState } from "../src/games/spyLocation";
+import { createSpyLocationState, defaultSpyLocationConfig, hasSpyLocationAccusationConsensus, judgeSpyLocation, submitSpyLocationAccusationVote, type SpyLocationState } from "../src/games/spyLocation";
 import { spectrumScales } from "../src/data/spectrumScales";
 import { createSpectrumMeterState, currentSpectrumRound, defaultSpectrumMeterConfig, scoreSpectrumGuess, totalSpectrumScore, updateCurrentSpectrumRound } from "../src/games/spectrumMeter";
-import { applyRobberAction, applySeerAction, buildRoleSet, countRoleCards, createWerewolfState, defaultWerewolfConfig, getNightAction, judgeWerewolf, type WerewolfState, type WerewolfVote } from "../src/games/werewolf";
+import { applyRobberAction, applySeerAction, buildRoleSet, countRoleCards, createWerewolfState, defaultWerewolfConfig, getNightAction, judgeWerewolf, resolveWerewolfNightActions, type WerewolfState, type WerewolfVote } from "../src/games/werewolf";
 import { wordInfiltratorTopics } from "../src/data/wordInfiltratorTopics";
 import { createWordInfiltratorState, defaultWordInfiltratorConfig, judgeWordInfiltrator, submitWordInfiltratorVote } from "../src/games/wordInfiltrator";
 import { assignJapanRegion, isPointInJapan } from "./geo-quality";
@@ -119,8 +119,10 @@ function smokeWerewolf() {
   assert.equal(seerAction?.mode, "player");
   assert.equal(seerAction.mode === "player" ? seerAction.seenRole : undefined, "werewolf");
   applyRobberAction(actionState, players[2].id, players[1].id);
-  assert.equal(actionState.playerCurrentCards[players[2].id], "werewolf");
+  assert.equal(actionState.playerCurrentCards[players[2].id], "robber");
   assert.equal(getNightAction(actionState, "robber")?.newRole, "werewolf");
+  resolveWerewolfNightActions(actionState);
+  assert.equal(actionState.playerCurrentCards[players[2].id], "werewolf");
 
   const forcedVotes: WerewolfVote[] = [
     { fromPlayerId: players[0].id, targetType: "player", targetPlayerId: players[1].id },
@@ -217,6 +219,18 @@ function smokeWordInfiltrator() {
   const guessedResult = judgeWordInfiltrator({ ...votedState, infiltratorGuess: state.topic.secretWord });
   assert.equal(guessedResult.guessCorrect, true);
   assert.equal(guessedResult.winningTeam, "infiltrator");
+
+  const otherTarget = voters.find((player) => player.id !== state.infiltratorPlayerId)?.id ?? voters[0].id;
+  const tiedResult = judgeWordInfiltrator({
+    ...state,
+    votes: [
+      { fromPlayerId: players[0].id, targetPlayerId: state.infiltratorPlayerId },
+      { fromPlayerId: players[1].id, targetPlayerId: state.infiltratorPlayerId },
+      { fromPlayerId: players[2].id, targetPlayerId: otherTarget },
+      { fromPlayerId: players[3].id, targetPlayerId: otherTarget }
+    ]
+  });
+  assert.equal(tiedResult.caught, false);
 }
 
 function smokeInsiderGuess() {
@@ -254,10 +268,13 @@ function smokeSpyLocation() {
   assert.ok(players.some((player) => player.id === state.spyPlayerId));
 
   const initialAccusationState: SpyLocationState = { ...state, accusedPlayerId: state.spyPlayerId };
-  const accusationState = players.reduce(
+  const accusationState = players
+    .filter((player) => player.id !== state.spyPlayerId)
+    .reduce(
     (nextState, voter) => submitSpyLocationAccusationVote(nextState, { fromPlayerId: voter.id, agrees: true }),
     initialAccusationState
   );
+  assert.equal(hasSpyLocationAccusationConsensus(accusationState, players.length), true);
   const localWin = judgeSpyLocation(accusationState, players.length);
   assert.equal(localWin.winningTeam, "locals");
 
@@ -287,6 +304,7 @@ function smokeRankingAnswers() {
   const state = createRankingAnswersState(players, defaultRankingAnswersConfig(), "smoke-ranking");
   assert.equal(state.phase, "numberHandoff");
   assert.equal(state.rounds.length, 5);
+  assert.equal(state.config.mistakeLimit, players.length);
   const round = currentRankingRound(state);
   assert.equal(round.assignments.length, players.length);
   assert.ok(players.every((player) => getRankingNumberForPlayer(state, player.id) >= 1));
@@ -307,16 +325,31 @@ function smokeFakeArtist() {
 
   const state = createFakeArtistState(fakePlayers, defaultFakeArtistConfig(), "smoke-fake");
   assert.equal(state.phase, "handoff");
-  assert.equal(state.drawOrder.length, fakePlayers.length * 2);
+  assert.notEqual(state.questionMasterPlayerId, state.fakeArtistPlayerId);
+  assert.equal(state.drawOrder.length, (fakePlayers.length - 1) * 2);
+  assert.equal(state.drawOrder.includes(state.questionMasterPlayerId), false);
   assert.ok(fakePlayers.some((player) => player.id === state.fakeArtistPlayerId));
   assert.ok(currentDrawingPlayerId(state));
 
   const votedState = fakePlayers
-    .filter((player) => player.id !== state.fakeArtistPlayerId)
+    .filter((player) => player.id !== state.fakeArtistPlayerId && player.id !== state.questionMasterPlayerId)
     .reduce((nextState, voter) => submitFakeArtistVote(nextState, { fromPlayerId: voter.id, targetPlayerId: state.fakeArtistPlayerId }), state);
   const result = judgeFakeArtist({ ...votedState, fakeGuess: "違う" });
   assert.equal(result.caught, true);
   assert.equal(result.winningTeam, "artists");
+
+  const artistVoters = fakePlayers.filter((player) => player.id !== state.questionMasterPlayerId);
+  const otherTargetId = artistVoters.find((player) => player.id !== state.fakeArtistPlayerId)?.id ?? artistVoters[0].id;
+  const tiedResult = judgeFakeArtist({
+    ...state,
+    votes: [
+      { fromPlayerId: artistVoters[0].id, targetPlayerId: state.fakeArtistPlayerId },
+      { fromPlayerId: artistVoters[1].id, targetPlayerId: state.fakeArtistPlayerId },
+      { fromPlayerId: artistVoters[2].id, targetPlayerId: otherTargetId },
+      { fromPlayerId: artistVoters[3].id, targetPlayerId: otherTargetId }
+    ]
+  });
+  assert.equal(tiedResult.caught, false);
 }
 
 smokeGameRegistry();

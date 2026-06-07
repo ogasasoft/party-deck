@@ -112,7 +112,7 @@ export const gameDefinitions: GameDefinitionMap = {
   "fake-artist": {
     id: "fake-artist",
     title: "エセアーティスト",
-    description: "1人だけお題を知らないまま、全員で線を描いて偽物を探します。",
+    description: "出題者以外で線を描き、1人だけお題を知らない偽物を探します。",
     minPlayers: 5,
     maxPlayers: 8,
     defaultConfig: defaultFakeArtistConfig,

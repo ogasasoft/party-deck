@@ -775,9 +775,8 @@ export type WerewolfPhase =
   | "dealRoles"
   | "roleHandoff"
   | "roleReveal"
-  | "nightSeer"
-  | "nightWerewolf"
-  | "nightRobber"
+  | "nightHandoff"
+  | "nightAction"
   | "discussion"
   | "voteHandoff"
   | "vote"
@@ -792,6 +791,7 @@ export type WerewolfState = {
   centerCards: [RoleId, RoleId];
   roleRevealDonePlayerIds: string[];
   nightActions: WerewolfNightAction[];
+  nightResolved?: boolean;
   votes: WerewolfVote[];
 };
 ```
@@ -856,10 +856,10 @@ players.length + 2
 | dealRoles | dealt | roleHandoff |
 | roleHandoff | confirmHandoff | roleReveal |
 | roleReveal | hideAndNext | roleHandoff |
-| roleReveal | all players revealed | nightSeer |
-| nightSeer | complete | nightWerewolf |
-| nightWerewolf | complete | nightRobber |
-| nightRobber | complete | discussion |
+| roleReveal | all players revealed | nightHandoff |
+| nightHandoff | confirmHandoff | nightAction |
+| nightAction | hideAndNext | nightHandoff |
+| nightAction | all players checked | discussion |
 | discussion | finishDiscussion | voteHandoff |
 | voteHandoff | confirmHandoff | vote |
 | vote | submitVote | voteHandoff |
@@ -868,6 +868,10 @@ players.length + 2
 | result | home | Home |
 
 ### 夜行動
+
+画面は人名順に全員へ回す。
+ただしルール処理は公式順に寄せ、占い師と人狼の情報確認後、怪盗の交換を夜の最後に解決する。
+このため、怪盗がプレイヤー順で占い師より先に操作した場合でも、占い師が見るカードは怪盗交換前のものになる。
 
 #### 占い師
 
@@ -891,6 +895,7 @@ players.length + 2
 - 交換しない選択もできる。
 - 交換した場合、自分の新しい役職だけを確認する。
 - 相手プレイヤーには交換されたことを自動通知しない。
+- アプリ内部では選択を記録し、夜行動全員分が終わってから `playerCurrentCards` に反映する。
 
 ### 投票
 

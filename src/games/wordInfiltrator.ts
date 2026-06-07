@@ -94,7 +94,7 @@ export function tallyWordInfiltratorVotes(state: WordInfiltratorState) {
 
 export function judgeWordInfiltrator(state: WordInfiltratorState): WordInfiltratorResult {
   const { topVotedPlayerIds } = tallyWordInfiltratorVotes(state);
-  const caught = topVotedPlayerIds.includes(state.infiltratorPlayerId);
+  const caught = topVotedPlayerIds.length === 1 && topVotedPlayerIds[0] === state.infiltratorPlayerId;
   const guessCorrect = normalizeGuess(state.infiltratorGuess ?? "") === normalizeGuess(state.topic.secretWord);
   const infiltratorWins = !caught || guessCorrect;
   return {
