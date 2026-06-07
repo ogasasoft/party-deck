@@ -41,6 +41,8 @@ import {
 } from "./games/drinkingGames";
 import {
   defaultNumberTalkConfig,
+  getNumberTalkTopicForConfig,
+  getNumberTalkTopicsForCategory,
   getNumberForPlayer,
   isNumberOrderCorrect,
   NumberTalkCategory,
@@ -167,6 +169,30 @@ const fakeArtistCategoryLabels: Record<"all" | FakeArtistCategory, string> = {
   event: "できごと"
 };
 
+function pickNumberTalkTopicId(category: NumberTalkCategory, currentTopicId?: string) {
+  const topics = getNumberTalkTopicsForCategory(category);
+  const candidates = topics.filter((topic) => topic.id !== currentTopicId);
+  const pool = candidates.length ? candidates : topics;
+  return pool[Math.floor(Math.random() * pool.length)]?.id;
+}
+
+function withNextNumberTalkTopic(config: NumberTalkConfig, category = config.topicCategory): NumberTalkConfig {
+  return {
+    ...config,
+    topicCategory: category,
+    topicId: pickNumberTalkTopicId(category, category === config.topicCategory ? config.topicId : undefined)
+  };
+}
+
+function withValidNumberTalkTopic(config: NumberTalkConfig): NumberTalkConfig {
+  if (getNumberTalkTopicForConfig(config)) return config;
+  return withNextNumberTalkTopic(config);
+}
+
+function sameRoleCounts(left: RoleCounts, right: RoleCounts) {
+  return WEREWOLF_ROLE_IDS.every((roleId) => left[roleId] === right[roleId]);
+}
+
 type PersistedAppState = {
   screen: Screen;
   selectedGame: GameId | null;
@@ -224,6 +250,19 @@ export function App() {
   const [fakeArtistState, setFakeArtistState] = useState<FakeArtistState | null>(restored?.fakeArtistState ?? null);
   const [activeSession, setActiveSession] = useState<ActiveSessionRef | null>(restored?.activeSession ?? null);
   const [isStarting, setIsStarting] = useState(false);
+
+  useEffect(() => {
+    if (screen !== "setup") return;
+    if (selectedGame === "number-talk") {
+      setNumberConfig((config) => withValidNumberTalkTopic(config));
+    }
+    if (selectedGame === "werewolf") {
+      setWerewolfConfig((config) => {
+        const normalized = normalizeWerewolfConfig(config, players.length);
+        return sameRoleCounts(config.roleCounts, normalized.roleCounts) && config.discussionTimeSec === normalized.discussionTimeSec ? config : normalized;
+      });
+    }
+  }, [players.length, screen, selectedGame]);
 
   useEffect(() => savePlayers(players), [players]);
   useEffect(() => {
@@ -327,6 +366,15 @@ export function App() {
     setSpectrumMeterState(null);
     setRankingAnswersState(null);
     setFakeArtistState(null);
+    if (gameId === "number-talk") {
+      setNumberConfig((config) => withValidNumberTalkTopic(config));
+    }
+    if (gameId === "werewolf") {
+      setWerewolfConfig((config) => {
+        const normalized = normalizeWerewolfConfig(config, players.length);
+        return sameRoleCounts(config.roleCounts, normalized.roleCounts) && config.discussionTimeSec === normalized.discussionTimeSec ? config : normalized;
+      });
+    }
     setSelectedGame(gameId);
     setScreen("setup");
   }
@@ -352,7 +400,9 @@ export function App() {
         setFakeArtistState(null);
       }
       if (selectedGame === "number-talk") {
-        const state = await getGameDefinition("number-talk").createState({ players, config: numberConfig, seed });
+        const config = withValidNumberTalkTopic(numberConfig);
+        setNumberConfig(config);
+        const state = await getGameDefinition("number-talk").createState({ players, config, seed });
         setNumberState(state);
         setGeoState(null);
         setWerewolfState(null);
@@ -365,7 +415,9 @@ export function App() {
         setFakeArtistState(null);
       }
       if (selectedGame === "werewolf") {
-        const state = await getGameDefinition("werewolf").createState({ players, config: werewolfConfig, seed });
+        const config = normalizeWerewolfConfig(werewolfConfig, players.length);
+        setWerewolfConfig(config);
+        const state = await getGameDefinition("werewolf").createState({ players, config, seed });
         setWerewolfState(state);
         setGeoState(null);
         setNumberState(null);
@@ -616,11 +668,9 @@ function SetupScreen(props: {
   isStarting: boolean;
 }) {
   const roleTargetCards = props.players.length + 2;
-  const werewolfConfig: WerewolfConfig = {
-    discussionTimeSec: props.werewolfConfig.discussionTimeSec === 300 ? 300 : 180,
-    roleCounts: props.werewolfConfig.roleCounts ?? defaultRoleCounts(props.players.length)
-  };
+  const werewolfConfig = normalizeWerewolfConfig(props.werewolfConfig, props.players.length);
   const roleTotalCards = countRoleCards(werewolfConfig.roleCounts);
+  const numberTopicPreview = getNumberTalkTopicForConfig(props.numberConfig) ?? getNumberTalkTopicsForCategory(props.numberConfig.topicCategory)[0];
   const hasValidPlayerCount = props.players.length >= props.game.minPlayers && props.players.length <= props.game.maxPlayers;
   const hasValidRoleCount = props.game.id !== "werewolf" || roleTotalCards === roleTargetCards;
   const canStart = hasValidPlayerCount && hasValidRoleCount;
@@ -661,9 +711,23 @@ function SetupScreen(props: {
                 value={props.numberConfig.topicCategory}
                 options={["normal", "twist", "love"]}
                 labels={{ normal: "通常", twist: "変化球", love: "恋愛" }}
-                onChange={(value) => props.setNumberConfig({ ...props.numberConfig, topicCategory: value as NumberTalkCategory })}
+                onChange={(value) => props.setNumberConfig(withNextNumberTalkTopic(props.numberConfig, value as NumberTalkCategory))}
               />
             </SettingRow>
+            {numberTopicPreview && (
+              <section className="topic-preview-card">
+                <div>
+                  <span className="field-label">今回のお題</span>
+                  <strong>{numberTopicPreview.text}</strong>
+                  <small>
+                    {numberTopicPreview.lowLabel ?? "小さい"} ↔ {numberTopicPreview.highLabel ?? "大きい"}
+                  </small>
+                </div>
+                <button className="secondary compact-button" type="button" onClick={() => props.setNumberConfig(withNextNumberTalkTopic(props.numberConfig))}>
+                  お題を変える
+                </button>
+              </section>
+            )}
             <SettingRow title="時間" detail="会話時間">
               <Segmented
                 value={String(props.numberConfig.discussionTimeSec)}
@@ -685,6 +749,7 @@ function SetupScreen(props: {
               counts={werewolfConfig.roleCounts}
               targetCards={roleTargetCards}
               onChange={(roleCounts) => props.setWerewolfConfig({ ...werewolfConfig, roleCounts })}
+              onReset={() => props.setWerewolfConfig({ ...werewolfConfig, roleCounts: defaultRoleCounts(props.players.length) })}
             />
             <SettingRow title="議論" detail="投票前の会話時間">
               <Segmented
@@ -1871,10 +1936,24 @@ function RuleDetails(props: { title: string; summary: string; details: string[] 
   );
 }
 
-function RoleCountEditor(props: { counts: RoleCounts; targetCards: number; onChange: (counts: RoleCounts) => void }) {
+function RoleCountEditor(props: { counts: RoleCounts; targetCards: number; onChange: (counts: RoleCounts) => void; onReset: () => void }) {
   const total = countRoleCards(props.counts);
   function changeRoleCount(roleId: RoleId, delta: -1 | 1) {
-    const next = { ...props.counts, [roleId]: Math.max(0, props.counts[roleId] + delta) };
+    const next = { ...props.counts };
+    if (delta === 1) {
+      if (total >= props.targetCards) {
+        if (roleId === "villager" || next.villager <= 0) return;
+        next.villager -= 1;
+      }
+      next[roleId] += 1;
+    } else {
+      if (next[roleId] <= 0) return;
+      if (roleId === "villager" && total <= props.targetCards) return;
+      next[roleId] -= 1;
+      if (total <= props.targetCards && roleId !== "villager") {
+        next.villager += 1;
+      }
+    }
     props.onChange(next);
   }
 
@@ -1889,6 +1968,9 @@ function RoleCountEditor(props: { counts: RoleCounts; targetCards: number; onCha
         </div>
         <span className={total === props.targetCards ? "count-ok" : "count-warn"}>{total === props.targetCards ? "OK" : "調整中"}</span>
       </div>
+      <button className="secondary compact-button" type="button" onClick={props.onReset}>
+        おすすめ構成に戻す
+      </button>
       <div className="role-count-list">
         {WEREWOLF_ROLE_IDS.map((roleId) => {
           const role = roleDefinitions[roleId];
@@ -1900,11 +1982,11 @@ function RoleCountEditor(props: { counts: RoleCounts; targetCards: number; onCha
                 <span>{role.actionSummary}</span>
               </div>
               <div className="stepper">
-                <button type="button" onClick={() => changeRoleCount(roleId, -1)} disabled={props.counts[roleId] <= 0}>
+                <button type="button" onClick={() => changeRoleCount(roleId, -1)} disabled={props.counts[roleId] <= 0 || (roleId === "villager" && total <= props.targetCards)}>
                   −
                 </button>
                 <strong>{props.counts[roleId]}</strong>
-                <button type="button" onClick={() => changeRoleCount(roleId, 1)} disabled={total >= props.targetCards}>
+                <button type="button" onClick={() => changeRoleCount(roleId, 1)} disabled={total >= props.targetCards && (roleId === "villager" || props.counts.villager <= 0)}>
                   +
                 </button>
               </div>

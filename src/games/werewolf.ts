@@ -96,6 +96,9 @@ export function normalizeRoleCounts(counts: Partial<RoleCounts> | null | undefin
     villager: sanitizeRoleCount(counts?.villager)
   };
   const total = countRoleCards(next);
+  if (total === 0) {
+    return defaultRoleCounts(Math.max(1, targetCards - 2));
+  }
   if (total < targetCards) {
     next.villager += targetCards - total;
   }

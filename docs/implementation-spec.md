@@ -649,6 +649,7 @@ export type NumberTalkConfig = {
   numberMax: 100;
   cardsPerPlayer: 1;
   topicCategory: "normal" | "twist" | "love";
+  topicId?: string;
   discussionTimeSec: 180 | 300;
 };
 ```
@@ -661,6 +662,7 @@ export type NumberTalkConfig = {
 ユーザーが設定できるもの:
 
 - お題カテゴリ
+- 今回のお題。setup画面で事前表示し、嫌な場合は同カテゴリ内で再抽選できる
 - 会話時間
 
 ### State

@@ -136,6 +136,7 @@ h1 {
 
 .game-card,
 .setting-row,
+.topic-preview-card,
 .player-editor,
 .result-row,
 .order-item,
@@ -235,6 +236,13 @@ h1 {
   background: #fff;
   border: 1px solid var(--line);
   padding: 0 16px;
+}
+
+.compact-button {
+  width: auto;
+  min-width: 132px;
+  min-height: 40px;
+  padding: 0 12px;
 }
 
 .ghost {
@@ -553,16 +561,32 @@ button.candidate-chip.active {
 }
 
 .setting-row strong,
+.topic-preview-card strong,
 .setting-row span {
   display: block;
 }
 
 .setting-row span,
+.topic-preview-card small,
 .note span,
 .muted {
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
+  line-height: 1.45;
+}
+
+.topic-preview-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+}
+
+.topic-preview-card strong {
+  margin-top: 3px;
+  font-size: 16px;
   line-height: 1.45;
 }
 
@@ -1327,8 +1351,13 @@ button.candidate-chip.active {
     padding: 12px;
   }
 
-  .setting-row {
+  .setting-row,
+  .topic-preview-card {
     grid-template-columns: 1fr;
+  }
+
+  .compact-button {
+    width: 100%;
   }
 
   .vote-grid {

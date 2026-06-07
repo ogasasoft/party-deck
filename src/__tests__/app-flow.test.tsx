@@ -55,6 +55,29 @@ describe("App pass-and-play flows", () => {
     expect(screenText()).toContain("ルールを見る");
   });
 
+  it("shows a valid Werewolf role set in setup", async () => {
+    await renderApp();
+
+    await clickButton("ワンナイト人狼");
+    expect(screenText()).toContain("役職カード");
+    expect(screenText()).toContain("6/6枚");
+    expect(screenText()).not.toContain("0/6枚");
+    expect(buttonByText("はじめる")?.disabled).toBe(false);
+  });
+
+  it("previews and rerolls the Number Talk topic before starting", async () => {
+    await renderApp();
+
+    await clickButton("ナンバートーク");
+    expect(screenText()).toContain("今回のお題");
+    const previousTopic = setupTopicText();
+    expect(previousTopic).toBeTruthy();
+
+    await clickButton("お題を変える");
+    expect(screenText()).toContain("今回のお題");
+    expect(setupTopicText()).not.toBe(previousTopic);
+  });
+
   it("reloads a Number Talk secret reveal back to the handoff screen", async () => {
     await renderApp();
 
@@ -100,6 +123,10 @@ async function clickButton(text: string) {
   });
 }
 
+function buttonByText(text: string) {
+  return buttons().find((button) => button.textContent?.includes(text));
+}
+
 async function fillInput(placeholder: string, value: string) {
   const input = Array.from(document.querySelectorAll("input")).find((item) => item.getAttribute("placeholder") === placeholder);
   expect(input, `input with placeholder ${placeholder}`).toBeTruthy();
@@ -121,4 +148,8 @@ function inputValues() {
 
 function screenText() {
   return document.body.textContent ?? "";
+}
+
+function setupTopicText() {
+  return document.querySelector(".topic-preview-card strong")?.textContent ?? "";
 }

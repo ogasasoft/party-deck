@@ -9,6 +9,7 @@ export type NumberTalkConfig = {
   numberMax: 100;
   cardsPerPlayer: 1;
   topicCategory: NumberTalkCategory;
+  topicId?: string;
   discussionTimeSec: 180 | 300;
 };
 
@@ -61,11 +62,11 @@ export function createNumberTalkState(players: Player[], config: NumberTalkConfi
     players.length,
     `${seed}:numbers`
   );
-  const topics = numberTalkTopics.filter((topic) => topic.enabled && topic.category === config.topicCategory);
-  const topic = sample(topics.length ? topics : numberTalkTopics, 1, `${seed}:topic`)[0];
+  const topics = getNumberTalkTopicsForCategory(config.topicCategory);
+  const topic = getNumberTalkTopicForConfig(config) ?? sample(topics, 1, `${seed}:topic`)[0];
   return {
     phase: "handoff",
-    config,
+    config: { ...config, topicId: topic.id },
     topic,
     currentPlayerIndex: 0,
     assignments: players.map((player, index) => ({ playerId: player.id, number: numbers[index] })),
@@ -75,6 +76,16 @@ export function createNumberTalkState(players: Player[], config: NumberTalkConfi
       `${seed}:initial-order`
     )
   };
+}
+
+export function getNumberTalkTopicsForCategory(category: NumberTalkCategory) {
+  const topics = numberTalkTopics.filter((topic) => topic.enabled && topic.category === category);
+  return topics.length ? topics : numberTalkTopics.filter((topic) => topic.enabled);
+}
+
+export function getNumberTalkTopicForConfig(config: Pick<NumberTalkConfig, "topicCategory" | "topicId">) {
+  if (!config.topicId) return null;
+  return getNumberTalkTopicsForCategory(config.topicCategory).find((topic) => topic.id === config.topicId) ?? null;
 }
 
 export function getNumberForPlayer(state: NumberTalkState, playerId: string) {
