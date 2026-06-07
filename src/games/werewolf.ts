@@ -102,6 +102,9 @@ export function normalizeRoleCounts(counts: Partial<RoleCounts> | null | undefin
   if (total < targetCards) {
     next.villager += targetCards - total;
   }
+  if (total > targetCards) {
+    trimRoleCounts(next, total - targetCards);
+  }
   return next;
 }
 
@@ -230,4 +233,15 @@ function replaceNightAction(state: WerewolfState, action: WerewolfNightAction) {
 
 function sanitizeRoleCount(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+}
+
+function trimRoleCounts(counts: RoleCounts, surplus: number) {
+  const trimOrder: RoleId[] = ["villager", "robber", "seer", "werewolf"];
+  let remaining = surplus;
+  for (const roleId of trimOrder) {
+    if (remaining <= 0) return;
+    const removable = Math.min(counts[roleId], remaining);
+    counts[roleId] -= removable;
+    remaining -= removable;
+  }
 }

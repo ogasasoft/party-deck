@@ -25,6 +25,7 @@ import {
   countRoleCards,
   defaultWerewolfConfig,
   judgeWerewolf,
+  normalizeWerewolfConfig,
   normalizeRoleCounts,
   type RoleCounts,
   type WerewolfState
@@ -139,6 +140,15 @@ describe("Number Talk", () => {
 });
 
 describe("Werewolf", () => {
+  it("keeps role counts aligned when player count shrinks", () => {
+    const fourPlayerConfig = defaultWerewolfConfig();
+    const threePlayerConfig = normalizeWerewolfConfig(fourPlayerConfig, 3);
+
+    expect(countRoleCards(fourPlayerConfig.roleCounts)).toBe(6);
+    expect(countRoleCards(threePlayerConfig.roleCounts)).toBe(5);
+    expect(buildRoleSet(3, threePlayerConfig.roleCounts)).toHaveLength(5);
+  });
+
   it("normalizes role counts, applies robber swaps, and judges executed wolves", () => {
     const counts: RoleCounts = normalizeRoleCounts({ werewolf: 1, seer: 1, robber: 1 }, 6);
     expect(countRoleCards(counts)).toBe(6);
