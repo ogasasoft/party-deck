@@ -13,7 +13,7 @@
 | ワード潜入者 | The Chameleon / Word Wolf / Imposter系 | 3-8 | 秘密ワード配布、投票、潜入者の最終推理 | 高 |
 | インサイダー推理 | Insider系 | 4-8 | 役職配布、答え配布、質問タイマー、投票 | 高 |
 | スパイロケーション | Spyfall系 | 4-8 | 場所配布、スパイ配布、タイマー、告発投票、スパイ推理 | 高 |
-| 価値観メーター | Wavelength系 | 2-8 | 0-100の正解位置、尺度カード、推測スライダー、採点 | 高 |
+| 価値観メーター | Wavelength系 | 4-8 | 2チーム、正解位置、尺度、左右予想、10点先取 | 高 |
 | エセアーティスト | A Fake Artist Goes to New York系 | 5-8 | お題配布、キャンバス、描画順、投票、偽物の最終推理 | 中 |
 | ランキング回答 | Top Ten系 | 4-8 | 1-10秘密番号、お題、回答記録、並び替え、協力採点 | 中 |
 
@@ -201,49 +201,52 @@ type SpyLocationState = {
 
 - `https://wavelength.lol/rules/`
 - `https://www.asmodee.ca/en/product/wavelength/`
+- `https://indd.adobe.com/view/1f510118-439b-4750-85bf-69007afd2b6b`
 
 ### 本家準拠ゲームフロー
 
-1. スペクトラムを1つ選ぶ。例: 熱い/冷たい、現実的/空想的。
-2. 親だけが0-100上の正解位置を見る。
-3. 親はその位置を連想させる短いヒントを出す。
-4. 回答者は相談してメーター上の位置を決める。
-5. 正解位置を公開し、近さに応じて得点する。
-6. 親を交代して複数ラウンド遊ぶ。
+1. プレイヤーをほぼ同人数の2チームへ分け、先攻は0点、後攻は1点から開始する。
+2. 手番チームの親だけが尺度と隠れた正解位置を見る。
+3. 親はその位置を連想させる短い1つのヒントを出し、その後は回答へ口出ししない。
+4. 親以外の手番チームは相談してメーター上の位置を決める。
+5. 相手チームは正解の中心が推測より左か右かを予想する。
+6. 正解位置を公開し、親チームは近さに応じて2-4点、相手チームは左右予想成功で1点を得る。親チームが4点の場合、相手チームは得点しない。
+7. 通常は相手チームへ手番を渡す。4点を取ったチームが採点後も負けている場合は、別の親で連続手番を行う。
+8. どちらかが10点以上になった時点で高得点側が勝利。同点なら両チームが1手番ずつ行うサドンデスを繰り返す。
 
-### Party Deck仕様案
+### Party Deck実装仕様
 
 画面フロー:
 
-1. 設定: チーム戦/全員協力、ラウンド数、カテゴリ。
-2. 親確認: 親だけがスペクトラムと正解位置を見る。
-3. ヒント入力/口頭宣言: 親が短いヒントを出す。
-4. 推測: みんなで相談し、スマホ上のスライダーを動かす。
-5. 結果: 正解位置、推測位置、得点を表示。
-6. 親交代。
+1. 設定: 尺度カテゴリを選択する。開始時に4-8人を均等な2チームへ自動編成する。
+2. チーム確認: 両チームのメンバーと後攻1点を公開する。
+3. 親確認: 手番チームの親だけが尺度と正解位置を見る。
+4. ヒント入力: 親が短いヒントを入力し、親以外の自チームへスマホを渡す。
+5. 位置推測: 親チームが相談し、数値を表示しないスライダーで位置を確定する。
+6. 左右予想: 相手チームへスマホを渡し、正解が確定位置より左右どちらかを選ぶ。
+7. 結果: 正解位置、2-4点の得点帯、推測位置、両チームの獲得点と累計点を表示する。
+8. 次手番、キャッチアップ、サドンデス、最終結果へ進む。
 
 必要state:
 
 ```ts
 type SpectrumMeterState = {
-  roundIndex: number;
-  psychicPlayerId: string;
-  spectrumId: string;
-  leftLabel: string;
-  rightLabel: string;
-  targetValue: number;
-  clue?: string;
-  guessValue?: number;
-  roundScores: Array<{ roundIndex: number; score: number; delta: number }>;
-  phase: "psychicReveal" | "clue" | "guess" | "result" | "final";
+  phase: SpectrumMeterPhase;
+  seed: string;
+  currentRoundIndex: number;
+  rounds: SpectrumMeterRound[];
+  teamPlayerIds: Record<"a" | "b", string[]>;
+  teamScores: Record<"a" | "b", number>;
+  suddenDeathTurnsRemaining?: number;
+  winningTeamId?: "a" | "b";
 };
 ```
 
 現状メモ:
 
-- Party Deck MVPはスマホ1台向けの簡略協力版。
-- Wavelength標準の2チーム制、相手チームの左右予想、10点先取、キャッチアップルールは未実装。
-- 本家標準へ寄せる場合は別タスクとしてチーム編成と得点レースを追加する。
+- 2チーム制、相手チームの左右予想、後攻1点、10点先取、キャッチアップ、サドンデスを実装済み。
+- スマホ1台で秘密位置を守るため、親確認後と左右予想前に受け渡し画面を挟む。
+- 0-100は内部計算だけに使い、推測中は数値を表示しない。
 
 ## 5. エセアーティスト
 
@@ -401,6 +404,7 @@ type RankingAnswersState = {
 - Spyfall rules: `https://www.spyfall-game.com/rules`
 - Wavelength rules: `https://wavelength.lol/rules/`
 - Wavelength / Asmodee Canada: `https://www.asmodee.ca/en/product/wavelength/`
+- Wavelength rulebook: `https://indd.adobe.com/view/1f510118-439b-4750-85bf-69007afd2b6b`
 - A Fake Artist Goes to New York / Oink Games: `https://oinkgames.com/en/games/analog/a-fake-artist-goes-to-new-york/`
 - Top Ten rules PDF / Cocktail Games: `https://www.cocktailgames.com/wp-content/uploads/2021/01/Top_ten_18_regles_BD.pdf`
 - Top Ten / Asmodee Spain: `https://www.asmodee.es/product/top-ten/`

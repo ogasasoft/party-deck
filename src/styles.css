@@ -306,6 +306,23 @@ h1 {
   background: #fff5f2;
 }
 
+.spectrum-scoreboard .active-team {
+  border-color: rgba(15, 139, 141, 0.48);
+  background: #eefafa;
+}
+
+.spectrum-scoreboard .active-team .rank {
+  color: #fff;
+  background: var(--teal);
+}
+
+.spectrum-scoreboard .rank {
+  width: 42px;
+  border-radius: 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .player-row input {
   width: 100%;
   min-height: 42px;
@@ -650,11 +667,32 @@ button.candidate-chip.active {
   border: 1px solid rgba(0, 0, 0, 0.16);
 }
 
+.meter-zone {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  z-index: 1;
+  border-right: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.meter-zone.score-2 {
+  background: #f7d467;
+}
+
+.meter-zone.score-3 {
+  background: #ef9d48;
+}
+
+.meter-zone.score-4 {
+  background: #d64545;
+}
+
 .meter-marker {
   width: 16px;
   height: 34px;
   position: absolute;
   top: 50%;
+  z-index: 2;
   border-radius: 999px;
   transform: translate(-50%, -50%);
   border: 2px solid #fff;
@@ -675,7 +713,7 @@ button.candidate-chip.active {
 
 .range-card strong {
   text-align: center;
-  font-size: 34px;
+  font-size: 20px;
   line-height: 1;
 }
 

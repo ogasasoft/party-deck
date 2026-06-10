@@ -34,6 +34,16 @@ import {
 } from "../games/werewolf";
 import { createRankingAnswersState, defaultRankingAnswersConfig } from "../games/rankingAnswers";
 import { hasSpyLocationAccusationConsensus, type SpyLocationState } from "../games/spyLocation";
+import {
+  advanceSpectrumRound,
+  createSpectrumMeterState,
+  currentSpectrumRound,
+  defaultSpectrumMeterConfig,
+  otherSpectrumTeam,
+  scoreSpectrumGuess,
+  scoreSpectrumRound,
+  updateCurrentSpectrumRound
+} from "../games/spectrumMeter";
 import { judgeWordInfiltrator, type WordInfiltratorState } from "../games/wordInfiltrator";
 import { createFakeArtistState, judgeFakeArtist, type FakeArtistState } from "../games/fakeArtist";
 
@@ -212,6 +222,67 @@ describe("Werewolf", () => {
 });
 
 describe("Reference-aligned table game rules", () => {
+  it("runs Spectrum Meter as two teams with the official scoring and catch-up turn", () => {
+    const state = createSpectrumMeterState(players, defaultSpectrumMeterConfig(), "spectrum-team-test");
+    expect(state.teamPlayerIds.a).toHaveLength(2);
+    expect(state.teamPlayerIds.b).toHaveLength(2);
+    expect(state.teamScores).toEqual({ a: 0, b: 1 });
+    expect(scoreSpectrumGuess(50, 68)).toBe(0);
+
+    const round = currentSpectrumRound(state);
+    const exactGuess = updateCurrentSpectrumRound({ ...state, teamScores: { a: 0, b: 9 } }, { guessValue: round.targetValue });
+    const scored = scoreSpectrumRound(exactGuess, "left");
+    expect(scored.teamScores[round.activeTeamId]).toBe(4);
+    expect(scored.teamScores[otherSpectrumTeam(round.activeTeamId)]).toBe(9);
+    expect(currentSpectrumRound(advanceSpectrumRound(scored)).activeTeamId).toBe(round.activeTeamId);
+  });
+
+  it("gives the opposing Spectrum Meter team one point for a correct side guess except on a bullseye", () => {
+    const state = createSpectrumMeterState(players, defaultSpectrumMeterConfig(), "spectrum-side-test");
+    const round = currentSpectrumRound(state);
+    const activeTeamId = round.activeTeamId;
+    const opponentTeamId = otherSpectrumTeam(activeTeamId);
+    const targetValue = 60;
+
+    const closeGuess = updateCurrentSpectrumRound(
+      {
+        ...state,
+        rounds: [{ ...round, targetValue }]
+      },
+      { guessValue: 50 }
+    );
+    const scoredSide = scoreSpectrumRound(closeGuess, "right");
+    expect(scoredSide.teamScores[activeTeamId]).toBe(3);
+    expect(scoredSide.teamScores[opponentTeamId]).toBe(2);
+
+    const bullseye = scoreSpectrumRound(updateCurrentSpectrumRound({ ...state, rounds: [{ ...round, targetValue }] }, { guessValue: targetValue }), "left");
+    expect(bullseye.teamScores[activeTeamId]).toBe(4);
+    expect(bullseye.teamScores[opponentTeamId]).toBe(1);
+  });
+
+  it("starts Spectrum Meter sudden death on a tied ten-point score and ends it after both teams play", () => {
+    const state = createSpectrumMeterState(players, defaultSpectrumMeterConfig(), "spectrum-sudden-death-test");
+    const won = advanceSpectrumRound({ ...state, phase: "roundResult", teamScores: { a: 10, b: 8 } });
+    expect(won.phase).toBe("final");
+    expect(won.winningTeamId).toBe("a");
+
+    const tied = {
+      ...state,
+      phase: "roundResult" as const,
+      teamScores: { a: 10, b: 10 }
+    };
+    const suddenDeath = advanceSpectrumRound(tied);
+    expect(suddenDeath.suddenDeathTurnsRemaining).toBe(2);
+
+    const afterFirstTurn = advanceSpectrumRound({ ...suddenDeath, phase: "roundResult", teamScores: { a: 11, b: 10 } });
+    expect(afterFirstTurn.phase).toBe("psychicHandoff");
+    expect(afterFirstTurn.suddenDeathTurnsRemaining).toBe(1);
+
+    const final = advanceSpectrumRound({ ...afterFirstTurn, phase: "roundResult", teamScores: { a: 12, b: 10 } });
+    expect(final.phase).toBe("final");
+    expect(final.winningTeamId).toBe("a");
+  });
+
   it("uses one Ranking Answers mistake token per player", () => {
     const state = createRankingAnswersState(players, defaultRankingAnswersConfig(), "ranking-token-test");
     expect(state.config.mistakeLimit).toBe(players.length);

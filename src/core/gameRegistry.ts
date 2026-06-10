@@ -94,8 +94,8 @@ export const gameDefinitions: GameDefinitionMap = {
   "spectrum-meter": {
     id: "spectrum-meter",
     title: "価値観メーター",
-    description: "親だけが見た正解位置を、ヒントからみんなでスライダー推理します。",
-    minPlayers: 2,
+    description: "2チームで親のヒントを読み、正解位置と左右を推理して10点を競います。",
+    minPlayers: 4,
     maxPlayers: 8,
     defaultConfig: defaultSpectrumMeterConfig,
     createState: ({ players, config, seed }) => createSpectrumMeterState(players, config, seed)

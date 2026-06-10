@@ -20,7 +20,17 @@ import { computeRankingMistakes, createRankingAnswersState, currentRankingRound,
 import { spyLocations } from "../src/data/spyLocations";
 import { createSpyLocationState, defaultSpyLocationConfig, hasSpyLocationAccusationConsensus, judgeSpyLocation, submitSpyLocationAccusationVote, type SpyLocationState } from "../src/games/spyLocation";
 import { spectrumScales } from "../src/data/spectrumScales";
-import { createSpectrumMeterState, currentSpectrumRound, defaultSpectrumMeterConfig, scoreSpectrumGuess, totalSpectrumScore, updateCurrentSpectrumRound } from "../src/games/spectrumMeter";
+import {
+  advanceSpectrumRound,
+  createSpectrumMeterState,
+  currentSpectrumRound,
+  defaultSpectrumMeterConfig,
+  otherSpectrumTeam,
+  scoreSpectrumGuess,
+  scoreSpectrumRound,
+  totalSpectrumScore,
+  updateCurrentSpectrumRound
+} from "../src/games/spectrumMeter";
 import { applyRobberAction, applySeerAction, buildRoleSet, countRoleCards, createWerewolfState, defaultWerewolfConfig, getNightAction, judgeWerewolf, resolveWerewolfNightActions, type WerewolfState, type WerewolfVote } from "../src/games/werewolf";
 import { wordInfiltratorTopics } from "../src/data/wordInfiltratorTopics";
 import { createWordInfiltratorState, defaultWordInfiltratorConfig, judgeWordInfiltrator, submitWordInfiltratorVote } from "../src/games/wordInfiltrator";
@@ -40,7 +50,7 @@ function smokeGameRegistry() {
   assert.equal(getGameDefinition("word-infiltrator").minPlayers, 3);
   assert.equal(getGameDefinition("insider-guess").minPlayers, 4);
   assert.equal(getGameDefinition("spy-location").minPlayers, 4);
-  assert.equal(getGameDefinition("spectrum-meter").minPlayers, 2);
+  assert.equal(getGameDefinition("spectrum-meter").minPlayers, 4);
   assert.equal(getGameDefinition("ranking-answers").minPlayers, 4);
   assert.equal(getGameDefinition("fake-artist").minPlayers, 5);
   assert.equal(formatClock(180), "3:00");
@@ -286,15 +296,24 @@ function smokeSpectrumMeter() {
   assert.equal(spectrumScales.length, 25);
   assert.equal(new Set(spectrumScales.map((scale) => scale.id)).size, spectrumScales.length);
   assert.equal(scoreSpectrumGuess(50, 50), 4);
+  assert.equal(scoreSpectrumGuess(50, 68), 0);
   assert.equal(scoreSpectrumGuess(50, 80), 0);
 
   const state = createSpectrumMeterState(players, defaultSpectrumMeterConfig(), "smoke-spectrum");
-  assert.equal(state.phase, "psychicHandoff");
-  assert.equal(state.rounds.length, 3);
+  assert.equal(state.phase, "teamReveal");
+  assert.equal(state.rounds.length, 1);
+  assert.equal(state.teamPlayerIds.a.length, 2);
+  assert.equal(state.teamPlayerIds.b.length, 2);
+  assert.deepEqual(state.teamScores, { a: 0, b: 1 });
   const round = currentSpectrumRound(state);
   assert.ok(round.targetValue >= 0 && round.targetValue <= 100);
-  const scored = updateCurrentSpectrumRound(state, { guessValue: round.targetValue, score: scoreSpectrumGuess(round.targetValue, round.targetValue) });
-  assert.equal(totalSpectrumScore(scored), 4);
+  const guessed = updateCurrentSpectrumRound(state, { guessValue: round.targetValue });
+  const scored = scoreSpectrumRound(guessed, "left");
+  assert.equal(scored.teamScores[round.activeTeamId], 4);
+  assert.equal(scored.teamScores[otherSpectrumTeam(round.activeTeamId)], 1);
+  assert.equal(totalSpectrumScore(scored), 5);
+  const catchUp = advanceSpectrumRound(scoreSpectrumRound({ ...guessed, teamScores: { a: 0, b: 9 } }, "left"));
+  assert.equal(currentSpectrumRound(catchUp).activeTeamId, round.activeTeamId);
 }
 
 function smokeRankingAnswers() {

@@ -91,6 +91,7 @@ import {
 import { SpectrumScaleCategory, spectrumScales } from "./data/spectrumScales";
 import {
   defaultSpectrumMeterConfig,
+  normalizeSpectrumMeterConfig,
   type SpectrumMeterConfig,
   type SpectrumMeterState
 } from "./games/spectrumMeter";
@@ -236,7 +237,7 @@ export function App() {
   const [wordInfiltratorConfig, setWordInfiltratorConfig] = useState<WordInfiltratorConfig>(() => restored?.wordInfiltratorConfig ?? defaultWordInfiltratorConfig());
   const [insiderGuessConfig, setInsiderGuessConfig] = useState<InsiderGuessConfig>(() => restored?.insiderGuessConfig ?? defaultInsiderGuessConfig());
   const [spyLocationConfig, setSpyLocationConfig] = useState<SpyLocationConfig>(() => restored?.spyLocationConfig ?? defaultSpyLocationConfig());
-  const [spectrumMeterConfig, setSpectrumMeterConfig] = useState<SpectrumMeterConfig>(() => restored?.spectrumMeterConfig ?? defaultSpectrumMeterConfig());
+  const [spectrumMeterConfig, setSpectrumMeterConfig] = useState<SpectrumMeterConfig>(() => normalizeSpectrumMeterConfig(restored?.spectrumMeterConfig ?? defaultSpectrumMeterConfig()));
   const [rankingAnswersConfig, setRankingAnswersConfig] = useState<RankingAnswersConfig>(() => restored?.rankingAnswersConfig ?? defaultRankingAnswersConfig());
   const [fakeArtistConfig, setFakeArtistConfig] = useState<FakeArtistConfig>(() => restored?.fakeArtistConfig ?? defaultFakeArtistConfig());
   const [geoState, setGeoState] = useState<GeoState | null>(restored?.geoState ?? null);
@@ -873,11 +874,11 @@ function SetupScreen(props: {
           <>
             <RuleDetails
               title="ルール"
-              summary="親だけが0から100の正解位置を見て、みんなはヒントから位置を推理します。"
+              summary="2チームで、親だけが見た正解位置をヒントから推理します。先に10点へ到達したチームの勝利です。"
               details={[
-                "親は左右の尺度と正解位置を見て、ちょうどよいヒントを出します。",
-                "回答側は相談してスライダーを動かします。",
-                "正解位置に近いほど高得点です。親を交代しながら複数回遊びます。"
+                "開始時に2チームへ自動で分かれ、後攻のBチームは1点から始まります。",
+                "親チームはヒントから正解位置を推測し、相手チームは正解が推測より左右どちらかを予想します。",
+                "親チームは近さで2〜4点、相手チームは左右予想成功で1点を獲得します。4点を取っても負けている場合は連続手番です。"
               ]}
             />
             <SettingRow title="尺度" detail="カテゴリを選択">
@@ -886,14 +887,6 @@ function SetupScreen(props: {
                 options={["all", ...spectrumScaleCategoryOptions]}
                 labels={spectrumScaleCategoryLabels}
                 onChange={(value) => props.setSpectrumMeterConfig({ ...props.spectrumMeterConfig, scaleCategory: value as "all" | SpectrumScaleCategory })}
-              />
-            </SettingRow>
-            <SettingRow title="回数" detail="親を交代する回数">
-              <Segmented
-                value={String(props.spectrumMeterConfig.roundCount)}
-                options={["3", "5"]}
-                labels={{ "3": "3回", "5": "5回" }}
-                onChange={(value) => props.setSpectrumMeterConfig({ ...props.spectrumMeterConfig, roundCount: Number(value) as 3 | 5 })}
               />
             </SettingRow>
           </>
@@ -2214,6 +2207,7 @@ function sanitizeLoadedSpyLocationState(state: SpyLocationState | null): SpyLoca
 }
 
 function sanitizeLoadedSpectrumMeterState(state: SpectrumMeterState | null): SpectrumMeterState | null {
+  if (!state || !("teamPlayerIds" in state) || !("teamScores" in state) || !("seed" in state)) return null;
   return sanitizeReloadPhase(state, {
     psychicReveal: "psychicHandoff"
   });

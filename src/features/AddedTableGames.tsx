@@ -29,10 +29,14 @@ import {
   type SpyLocationState
 } from "../games/spyLocation";
 import {
+  advanceSpectrumRound,
   currentSpectrumRound,
-  scoreSpectrumGuess,
+  getSpectrumTeamPlayerIds,
+  otherSpectrumTeam,
+  scoreSpectrumRound,
   totalSpectrumScore,
   updateCurrentSpectrumRound,
+  type SpectrumTeamId,
   type SpectrumMeterState
 } from "../games/spectrumMeter";
 import {
@@ -680,10 +684,36 @@ function SpectrumMeterGame(props: {
 }) {
   const round = currentSpectrumRound(props.state);
   const psychic = props.players.find((player) => player.id === round.psychicPlayerId) ?? props.players[0];
+  const activeTeamId = round.activeTeamId;
+  const opponentTeamId = otherSpectrumTeam(activeTeamId);
+  const activeTeamPlayers = spectrumTeamPlayers(props.state, props.players, activeTeamId);
+  const opponentTeamPlayers = spectrumTeamPlayers(props.state, props.players, opponentTeamId);
+  const psychicTeammate = activeTeamPlayers.find((player) => player.id !== psychic.id) ?? activeTeamPlayers[0] ?? psychic;
+  const opponentRepresentative = opponentTeamPlayers[0] ?? props.players[0];
   const guessValue = round.guessValue ?? 50;
 
+  if (props.state.phase === "teamReveal") {
+    return (
+      <section className="screen">
+        <Topbar title="チーム確認" eyebrow="価値観メーター" />
+        <div className="content">
+          <SpectrumTeamScoreboard state={props.state} />
+          <SpectrumTeamRoster teamId="a" players={spectrumTeamPlayers(props.state, props.players, "a")} />
+          <SpectrumTeamRoster teamId="b" players={spectrumTeamPlayers(props.state, props.players, "b")} />
+          <div className="note">
+            <strong>後攻ボーナス</strong>
+            <span>Bチームは1点から開始します。</span>
+          </div>
+          <button className="primary" type="button" onClick={() => props.setState({ ...props.state, phase: "psychicHandoff" })}>
+            最初の親へ渡す
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   if (props.state.phase === "psychicHandoff") {
-    return <PassDevice label="親の確認" player={psychic} onConfirm={() => props.setState({ ...props.state, phase: "psychicReveal" })} />;
+    return <PassDevice label={`${formatSpectrumTeam(activeTeamId)} 親の確認`} player={psychic} onConfirm={() => props.setState({ ...props.state, phase: "psychicReveal" })} />;
   }
 
   if (props.state.phase === "psychicReveal") {
@@ -691,9 +721,14 @@ function SpectrumMeterGame(props: {
       <section className="screen">
         <Topbar title="親の確認" eyebrow="価値観メーター" />
         <div className="content">
+          <SpectrumTeamScoreboard state={props.state} />
           <SpectrumScaleCard round={round} showTarget />
+          <div className="note">
+            <strong>{formatSpectrumTeam(activeTeamId)}の親</strong>
+            <span>正解位置を連想させる、短い1つのヒントを考えます。数字や左右の位置を直接言わないでください。</span>
+          </div>
           <button className="primary" type="button" onClick={() => props.setState({ ...props.state, phase: "clue" })}>
-            ヒントへ
+            ヒントを入力する
           </button>
         </div>
       </section>
@@ -712,32 +747,63 @@ function SpectrumMeterGame(props: {
             placeholder="親のヒントを入力"
             onChange={(event) => props.setState(updateCurrentSpectrumRound(props.state, { clue: event.target.value }))}
           />
-          <button className="primary" type="button" onClick={() => props.setState({ ...props.state, phase: "guess" })} disabled={!round.clue?.trim()}>
-            推測へ
+          <button className="primary" type="button" onClick={() => props.setState({ ...props.state, phase: "teamGuessHandoff" })} disabled={!round.clue?.trim()}>
+            自分のチームへ渡す
           </button>
         </div>
       </section>
     );
   }
 
+  if (props.state.phase === "teamGuessHandoff") {
+    return <PassDevice label={`${formatSpectrumTeam(activeTeamId)} 推測`} player={psychicTeammate} onConfirm={() => props.setState({ ...props.state, phase: "guess" })} />;
+  }
+
   if (props.state.phase === "guess") {
     return (
       <section className="screen">
-        <Topbar title="推測" eyebrow="価値観メーター" onBack={() => props.setState({ ...props.state, phase: "clue" })} />
+        <Topbar title={`${formatSpectrumTeam(activeTeamId)}の推測`} eyebrow="価値観メーター" />
         <div className="content">
+          <SpectrumTeamScoreboard state={props.state} />
           <SpectrumScaleCard round={round} />
           <div className="topic">{round.clue}</div>
           <RangeGuess value={guessValue} onChange={(value) => props.setState(updateCurrentSpectrumRound(props.state, { guessValue: value }))} />
           <button
             className="primary"
             type="button"
-            onClick={() => {
-              const score = scoreSpectrumGuess(round.targetValue, guessValue);
-              props.setState({ ...updateCurrentSpectrumRound(props.state, { guessValue, score }), phase: "roundResult" });
-            }}
+            onClick={() => props.setState({ ...updateCurrentSpectrumRound(props.state, { guessValue }), phase: "opponentGuessHandoff" })}
           >
-            結果を見る
+            推測を確定する
           </button>
+        </div>
+      </section>
+    );
+  }
+
+  if (props.state.phase === "opponentGuessHandoff") {
+    return <PassDevice label={`${formatSpectrumTeam(opponentTeamId)} 左右予想`} player={opponentRepresentative} onConfirm={() => props.setState({ ...props.state, phase: "opponentGuess" })} />;
+  }
+
+  if (props.state.phase === "opponentGuess") {
+    return (
+      <section className="screen">
+        <Topbar title={`${formatSpectrumTeam(opponentTeamId)}の左右予想`} eyebrow="価値観メーター" />
+        <div className="content">
+          <SpectrumTeamScoreboard state={props.state} />
+          <SpectrumScaleCard round={round} showGuess />
+          <div className="topic">{round.clue}</div>
+          <div className="note">
+            <strong>1点のチャンス</strong>
+            <span>正解の中心が、確定した推測より左右どちらにあるか選びます。親チームが4点の場合は得点できません。</span>
+          </div>
+          <div className="actions">
+            <button className="secondary" type="button" onClick={() => props.setState(scoreSpectrumRound(props.state, "left"))}>
+              {round.scale.leftLabel}側
+            </button>
+            <button className="secondary" type="button" onClick={() => props.setState(scoreSpectrumRound(props.state, "right"))}>
+              {round.scale.rightLabel}側
+            </button>
+          </div>
         </div>
       </section>
     );
@@ -745,28 +811,28 @@ function SpectrumMeterGame(props: {
 
   if (props.state.phase === "roundResult") {
     const delta = Math.abs(round.targetValue - guessValue);
-    const isLastRound = props.state.currentRoundIndex >= props.state.rounds.length - 1;
     return (
       <section className="screen">
         <Topbar title="結果" eyebrow="価値観メーター" />
         <div className="content">
+          <SpectrumTeamScoreboard state={props.state} />
           <SpectrumScaleCard round={round} showTarget showGuess />
           <div className="note">
-            <strong>{round.score ?? 0}点</strong>
-            <span>差は{delta}です。</span>
+            <strong>{formatSpectrumTeam(activeTeamId)} +{round.psychicTeamScore ?? 0}点</strong>
+            <span>推測と正解の差は{delta}です。</span>
+          </div>
+          <div className="note">
+            <strong>{formatSpectrumTeam(opponentTeamId)} +{round.opponentTeamScore ?? 0}点</strong>
+            <span>
+              左右予想: {round.opponentGuess === "left" ? round.scale.leftLabel : round.scale.rightLabel}側
+            </span>
           </div>
           <button
             className="primary"
             type="button"
-            onClick={() =>
-              props.setState({
-                ...props.state,
-                currentRoundIndex: isLastRound ? props.state.currentRoundIndex : props.state.currentRoundIndex + 1,
-                phase: isLastRound ? "final" : "psychicHandoff"
-              })
-            }
+            onClick={() => props.setState(advanceSpectrumRound(props.state))}
           >
-            {isLastRound ? "最終結果へ" : "次の親へ"}
+            {spectrumAdvanceLabel(props.state)}
           </button>
         </div>
       </section>
@@ -777,16 +843,23 @@ function SpectrumMeterGame(props: {
     <section className="screen">
       <Topbar title="最終結果" eyebrow="価値観メーター" />
       <div className="content">
-        <div className="topic">合計 {totalSpectrumScore(props.state)}点</div>
+        <div className="topic">{formatSpectrumTeam(props.state.winningTeamId ?? "a")}の勝利</div>
+        <SpectrumTeamScoreboard state={props.state} final />
+        <div className="note">
+          <strong>合計 {totalSpectrumScore(props.state)}点</strong>
+          <span>{props.state.rounds.length}ターンで決着しました。</span>
+        </div>
         <div className="result-list">
           {props.state.rounds.map((item) => {
             const player = props.players.find((candidate) => candidate.id === item.psychicPlayerId);
             return (
               <div key={item.roundIndex} className="result-row">
                 <span className="rank">{item.roundIndex + 1}</span>
-                <strong>{player?.nickname ?? "親"}</strong>
+                <strong>
+                  {formatSpectrumTeam(item.activeTeamId)} / {player?.nickname ?? "親"}
+                </strong>
                 <span className="score">
-                  {item.score ?? 0}点
+                  +{item.psychicTeamScore ?? 0} / 相手+{item.opponentTeamScore ?? 0}
                   <small>
                     {item.scale.leftLabel} / {item.scale.rightLabel}
                   </small>
@@ -1233,6 +1306,59 @@ function formatInsiderResultTitle(team: ReturnType<typeof judgeInsiderGuess>["wi
   return "全員失敗";
 }
 
+function spectrumTeamPlayers(state: SpectrumMeterState, players: Player[], teamId: SpectrumTeamId) {
+  const ids = new Set(getSpectrumTeamPlayerIds(state, teamId));
+  return players.filter((player) => ids.has(player.id));
+}
+
+function formatSpectrumTeam(teamId: SpectrumTeamId) {
+  return teamId === "a" ? "Aチーム" : "Bチーム";
+}
+
+function SpectrumTeamScoreboard(props: { state: SpectrumMeterState; final?: boolean }) {
+  const activeTeamId = currentSpectrumRound(props.state).activeTeamId;
+  return (
+    <div className="result-list spectrum-scoreboard">
+      {(["a", "b"] as SpectrumTeamId[]).map((teamId) => (
+        <div
+          key={teamId}
+          className={`result-row ${props.final ? (props.state.winningTeamId === teamId ? "active-team" : "") : activeTeamId === teamId ? "active-team" : ""}`}
+        >
+          <span className="rank">{props.final ? (props.state.winningTeamId === teamId ? "勝利" : "終了") : activeTeamId === teamId ? "親" : "相手"}</span>
+          <strong>{formatSpectrumTeam(teamId)}</strong>
+          <span className="score">{props.state.teamScores[teamId]}点</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SpectrumTeamRoster(props: { teamId: SpectrumTeamId; players: Player[] }) {
+  return (
+    <div className="note">
+      <strong>{formatSpectrumTeam(props.teamId)}</strong>
+      <span>{props.players.map((player) => player.nickname).join("・")}</span>
+    </div>
+  );
+}
+
+function spectrumAdvanceLabel(state: SpectrumMeterState) {
+  const round = currentSpectrumRound(state);
+  const opponentTeamId = otherSpectrumTeam(round.activeTeamId);
+  if (state.suddenDeathTurnsRemaining) {
+    const remaining = state.suddenDeathTurnsRemaining - 1;
+    if (remaining === 0 && state.teamScores.a !== state.teamScores.b) return "最終結果へ";
+    return remaining === 0 ? "サドンデスを続ける" : "次のサドンデスへ";
+  }
+  if (Math.max(state.teamScores.a, state.teamScores.b) >= 10) {
+    return state.teamScores.a === state.teamScores.b ? "サドンデスへ" : "最終結果へ";
+  }
+  if (round.psychicTeamScore === 4 && state.teamScores[round.activeTeamId] < state.teamScores[opponentTeamId]) {
+    return `${formatSpectrumTeam(round.activeTeamId)}の連続手番へ`;
+  }
+  return `${formatSpectrumTeam(opponentTeamId)}の手番へ`;
+}
+
 function SpectrumScaleCard(props: { round: ReturnType<typeof currentSpectrumRound>; showTarget?: boolean; showGuess?: boolean }) {
   const target = props.round.targetValue;
   const guess = props.round.guessValue ?? 50;
@@ -1243,24 +1369,50 @@ function SpectrumScaleCard(props: { round: ReturnType<typeof currentSpectrumRoun
         <strong>{props.round.scale.rightLabel}</strong>
       </div>
       <div className="meter-track" aria-hidden="true">
+        {props.showTarget && (
+          <>
+            <span className="meter-zone score-2" style={meterZoneStyle(target - 16, target - 10)} />
+            <span className="meter-zone score-3" style={meterZoneStyle(target - 10, target - 4)} />
+            <span className="meter-zone score-4" style={meterZoneStyle(target - 4, target + 4)} />
+            <span className="meter-zone score-3" style={meterZoneStyle(target + 4, target + 10)} />
+            <span className="meter-zone score-2" style={meterZoneStyle(target + 10, target + 16)} />
+          </>
+        )}
         {props.showTarget && <span className="meter-marker target" style={{ left: `${target}%` }} />}
         {props.showGuess && <span className="meter-marker guess" style={{ left: `${guess}%` }} />}
       </div>
       <div className="meter-values">
-        {props.showTarget ? <span>正解 {target}</span> : <span>正解は親だけ</span>}
-        {props.showGuess && <span>回答 {guess}</span>}
+        {props.showTarget ? <span>正解位置</span> : <span>正解は親だけ</span>}
+        {props.showGuess && <span>確定した推測</span>}
       </div>
     </section>
   );
+}
+
+function meterZoneStyle(start: number, end: number): React.CSSProperties {
+  const left = Math.max(0, start);
+  const right = Math.min(100, end);
+  return {
+    left: `${left}%`,
+    width: `${Math.max(0, right - left)}%`
+  };
 }
 
 function RangeGuess(props: { value: number; onChange: (value: number) => void }) {
   return (
     <div className="range-card">
       <input type="range" min="0" max="100" value={props.value} onChange={(event) => props.onChange(Number(event.target.value))} aria-label="推測位置" />
-      <strong>{props.value}</strong>
+      <strong>{formatRangePosition(props.value)}</strong>
     </div>
   );
+}
+
+function formatRangePosition(value: number) {
+  if (value < 20) return "かなり左";
+  if (value < 40) return "やや左";
+  if (value <= 60) return "中央付近";
+  if (value <= 80) return "やや右";
+  return "かなり右";
 }
 
 function getWordCandidateWords(state: WordInfiltratorState) {
