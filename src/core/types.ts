@@ -22,6 +22,8 @@ export type GameSummary = {
   description: string;
   minPlayers: number;
   maxPlayers: number;
+  availability?: "active" | "paused";
+  availabilityLabel?: string;
 };
 
 export type GameDefinition<TConfig = unknown, TState = unknown> = GameSummary & {

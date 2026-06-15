@@ -4,7 +4,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { CountdownTimer } from "./components/CountdownTimer";
 import { PlayerSetup } from "./components/PlayerSetup";
 import { AdSlot, FinalResultActions, PassDevice, PlayerOrder, PlayerStrip, Topbar } from "./components/PartyScreens";
-import { games, getGameDefinition } from "./core/gameRegistry";
+import { games, getGameDefinition, isGameAvailable } from "./core/gameRegistry";
 import { createSeed } from "./core/random";
 import { sanitizeReloadPhase } from "./core/reloadSafety";
 import {
@@ -356,6 +356,7 @@ export function App() {
   }
 
   function openSetup(gameId: GameId) {
+    if (!isGameAvailable(gameId)) return;
     clearGameSession(activeSession);
     setActiveSession(null);
     setGeoState(null);
@@ -382,11 +383,10 @@ export function App() {
   }
 
   async function startGame() {
-    if (isStarting) return;
+    if (isStarting || !selectedGame || !isGameAvailable(selectedGame)) return;
     setIsStarting(true);
     const seed = createSeed();
     try {
-      if (!selectedGame) return;
       const nextSession = { sessionId: createSessionId(selectedGame), gameId: selectedGame };
       if (selectedGame === "geo") {
         const state = await getGameDefinition("geo").createState({ players, config: { ...geoConfig, rounds: 1 }, seed });
@@ -625,8 +625,17 @@ function HomeScreen(props: { onPlayers: () => void; onSelect: (gameId: GameId) =
       <div className="content">
         <div className="game-grid">
           {games.map((game) => (
-            <button key={game.id} className="game-card" type="button" onClick={() => props.onSelect(game.id)}>
-              <span className="game-title">{game.title}</span>
+            <button
+              key={game.id}
+              className={game.availability === "paused" ? "game-card paused-game-card" : "game-card"}
+              type="button"
+              onClick={() => props.onSelect(game.id)}
+              disabled={game.availability === "paused"}
+            >
+              <span className="game-card-title-row">
+                <span className="game-title">{game.title}</span>
+                {game.availabilityLabel && <span className="paused-label">{game.availabilityLabel}</span>}
+              </span>
               <span className="pill">
                 {game.minPlayers}-{game.maxPlayers}人
               </span>
@@ -2147,6 +2156,11 @@ function sanitizePersistedAppState(state: PersistedAppState | null): PersistedAp
   const next = structuredClone(state);
 
   next.activeSession = next.activeSession ?? null;
+  if (next.selectedGame && !isGameAvailable(next.selectedGame)) {
+    next.screen = "home";
+    next.selectedGame = null;
+    next.activeSession = null;
+  }
   if (next.screen !== "game") {
     next.activeSession = null;
   }

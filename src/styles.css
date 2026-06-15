@@ -162,6 +162,36 @@ h1 {
   white-space: normal;
 }
 
+.game-card:disabled {
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.paused-game-card {
+  border-style: dashed;
+  background: #f5efe7;
+  color: var(--muted);
+}
+
+.game-card-title-row {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.paused-label {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: #6b6258;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 950;
+  line-height: 1;
+}
+
 .game-title {
   display: block;
   font-size: 19px;

@@ -323,6 +323,8 @@ npm run validate:geo
 - 受け渡し画面がある。
 - 秘密情報や回答中に広告が出ない。
 
+ゲームを一時的に遊べなくする場合は、`src/core/gameRegistry.ts` の対象定義へ `availability: "paused"` と表示用の `availabilityLabel` を設定する。ホーム選択、新規開始、保存セッション復帰は共通判定で無効化される。再開時はこの2項目を削除する。
+
 ### 飲み会ゲーム辞典へ追加する
 
 対象:

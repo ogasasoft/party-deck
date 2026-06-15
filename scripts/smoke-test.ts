@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { distanceMeters } from "../src/core/distance";
-import { games, getGameDefinition } from "../src/core/gameRegistry";
+import { games, getGameDefinition, isGameAvailable } from "../src/core/gameRegistry";
 import { sanitizeReloadPhase } from "../src/core/reloadSafety";
 import { formatClock } from "../src/core/time";
 import { DEFAULT_PLAYERS } from "../src/core/types";
@@ -41,8 +41,12 @@ const players = DEFAULT_PLAYERS.slice(0, 4);
 function smokeGameRegistry() {
   assert.deepEqual(
     games.map((game) => game.id),
-    ["geo", "number-talk", "werewolf", "drinking-games", "word-infiltrator", "insider-guess", "spy-location", "spectrum-meter", "ranking-answers", "fake-artist"]
+    ["drinking-games", "number-talk", "werewolf", "word-infiltrator", "insider-guess", "spy-location", "spectrum-meter", "ranking-answers", "fake-artist", "geo"]
   );
+  assert.equal(games[0].id, "drinking-games");
+  assert.equal(getGameDefinition("geo").availability, "paused");
+  assert.equal(isGameAvailable("geo"), false);
+  assert.equal(isGameAvailable("drinking-games"), true);
   assert.equal(getGameDefinition("geo").minPlayers, 2);
   assert.equal(getGameDefinition("number-talk").defaultConfig().numberMax, 100);
   assert.equal(countRoleCards(getGameDefinition("werewolf").defaultConfig().roleCounts), players.length + 2);

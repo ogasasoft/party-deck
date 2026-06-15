@@ -216,6 +216,8 @@ export type GameDefinition<TConfig, TState> = {
   description: string;
   minPlayers: number;
   maxPlayers: number;
+  availability?: "active" | "paused";
+  availabilityLabel?: string;
   createDefaultConfig: () => TConfig;
   createInitialState: (input: {
     players: Player[];
@@ -225,6 +227,8 @@ export type GameDefinition<TConfig, TState> = {
   canShowAds: (state: TState) => boolean;
 };
 ```
+
+ゲーム一覧はプロダクト上の優先順を明示的に定義し、飲み会ゲーム辞典を先頭へ固定する。一時停止中のゲームは一覧へ残すが、状態ラベルを表示して選択、開始、保存セッション復帰を無効化する。
 
 ### Session
 

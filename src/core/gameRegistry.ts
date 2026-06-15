@@ -31,6 +31,8 @@ export const gameDefinitions: GameDefinitionMap = {
     description: "Mapillaryの日本画像を見て、全員が同じ地点を順番に当てます。",
     minPlayers: 2,
     maxPlayers: 8,
+    availability: "paused",
+    availabilityLabel: "一時停止中",
     defaultConfig: defaultGeoConfig,
     createState: async ({ players, config, seed }) => {
       const locations = await loadPlayableGeoLocations();
@@ -120,14 +122,36 @@ export const gameDefinitions: GameDefinitionMap = {
   }
 };
 
-export const games: GameSummary[] = Object.values(gameDefinitions).map(({ id, title, description, minPlayers, maxPlayers }) => ({
-  id,
-  title,
-  description,
-  minPlayers,
-  maxPlayers
-}));
+const gameOrder: GameId[] = [
+  "drinking-games",
+  "number-talk",
+  "werewolf",
+  "word-infiltrator",
+  "insider-guess",
+  "spy-location",
+  "spectrum-meter",
+  "ranking-answers",
+  "fake-artist",
+  "geo"
+];
+
+export const games: GameSummary[] = gameOrder.map((gameId) => {
+  const { id, title, description, minPlayers, maxPlayers, availability, availabilityLabel } = gameDefinitions[gameId];
+  return {
+    id,
+    title,
+    description,
+    minPlayers,
+    maxPlayers,
+    availability,
+    availabilityLabel
+  };
+});
 
 export function getGameDefinition<TGameId extends GameId>(gameId: TGameId): GameDefinitionMap[TGameId] {
   return gameDefinitions[gameId];
+}
+
+export function isGameAvailable(gameId: GameId) {
+  return getGameDefinition(gameId).availability !== "paused";
 }
