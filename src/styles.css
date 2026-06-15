@@ -779,6 +779,11 @@ button.candidate-chip.active {
   padding-bottom: 2px;
 }
 
+.filter-section {
+  display: grid;
+  gap: 6px;
+}
+
 .filter-row button {
   min-height: 36px;
   min-width: max-content;
@@ -798,6 +803,10 @@ button.candidate-chip.active {
   border: 1px solid rgba(214, 69, 69, 0.2);
 }
 
+.filter-row button.strong-filter {
+  border: 1px solid rgba(190, 83, 31, 0.28);
+}
+
 .drink-game-list {
   display: grid;
   gap: 12px;
@@ -810,6 +819,10 @@ button.candidate-chip.active {
   border-radius: 8px;
   background: var(--panel);
   padding: 12px;
+}
+
+.strong-game-card {
+  border-color: rgba(190, 83, 31, 0.4);
 }
 
 .drink-game-head {
@@ -828,6 +841,11 @@ button.candidate-chip.active {
 
 .special-pill {
   background: #2a2020;
+  color: #fff;
+}
+
+.strong-pill {
+  background: #a74721;
   color: #fff;
 }
 
@@ -861,6 +879,28 @@ button.candidate-chip.active {
   color: var(--muted);
   font-size: 11px;
   font-weight: 950;
+}
+
+.drink-game-warning {
+  display: grid;
+  gap: 3px;
+  border-left: 4px solid #a74721;
+  padding: 9px 10px;
+  background: #fff3ec;
+  color: #713018;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.drink-game-warning strong {
+  font-size: 11px;
+}
+
+.drink-game-warning small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .drink-game-details {

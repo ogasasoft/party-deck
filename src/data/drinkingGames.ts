@@ -1,5 +1,6 @@
 export type DrinkingGameCountry = "日本" | "アメリカ" | "イギリス" | "韓国" | "国際";
 export type DrinkingGameSpecialCategory = "下ネタ";
+export type DrinkingGameIntensity = "light" | "strong";
 
 export type DrinkingGameRecord = {
   id: string;
@@ -8,6 +9,8 @@ export type DrinkingGameRecord = {
   hiddenAliases?: string[];
   country?: DrinkingGameCountry;
   specialCategory?: DrinkingGameSpecialCategory;
+  intensity?: DrinkingGameIntensity;
+  contentWarnings?: string[];
   minPlayers: number;
   maxPlayers?: number;
   durationMin: number;
@@ -23,6 +26,7 @@ export type DrinkingGameRecord = {
 
 const reviewedAt = "2026-05-21";
 const trendReviewedAt = "2026-05-25";
+const latestReviewedAt = "2026-06-15";
 
 export const drinkingGameSourceRefs = {
   spacemarket: "https://www.spacemarket.com/magazine/know-how/party/drinking-party-game/",
@@ -50,7 +54,19 @@ export const drinkingGameSourceRefs = {
   imposterGames: "https://impostergames.org/how-to",
   wikipediaKings: "https://en.wikipedia.org/wiki/Kings_(card_game)",
   wikipediaYesNoBlackWhite: "https://en.wikipedia.org/wiki/Yes,_no,_black,_white",
-  ragnetToolless: "https://www.ragnet.co.jp/drinking-toolless-games"
+  ragnetToolless: "https://www.ragnet.co.jp/drinking-toolless-games",
+  miraizakaDrinkingGames: "https://miraizaka.com/blog_list/10482/",
+  yoyappinDrinkingGames: "https://yoyappin.westjr.co.jp/media/drinking-party-game/",
+  kVillageKoreanGames: "https://kvillage.jp/school/kawasaki/blog/236143/",
+  geonbaeKoreanGames: "https://geonbae.com/most-popular-korean-drinking-games-you-can-play-to-break-the-ice/",
+  hooplaQuestionsOnly: "https://www.hooplaimpro.com/resource/questions-only",
+  glamourListenJudge: "https://www.glamour.com/story/the-we-listen-and-we-dont-judge-tiktok-trend-explained",
+  knowYourMemePassPhone: "https://knowyourmeme.com/memes/pass-the-phone-challenge-passing-the-phone-to",
+  paradeHotSeat: "https://parade.com/living/hot-seat-questions",
+  targetFirstWorst: "https://www.target.com/p/dyce-games-first-to-worst-couples-board-game/-/A-94769275",
+  businessInsiderNameWoman: "https://www.businessinsider.com/name-a-woman-challenge-tiktok-asking-husband-boyfriend-relationship-test-2023-12",
+  wikipediaSmashPass: "https://en.wikipedia.org/wiki/Smash_or_pass",
+  timeBeigeFlags: "https://time.com/6286130/tiktok-beige-flags/"
 } as const;
 
 export const drinkingGames: DrinkingGameRecord[] = [
@@ -1175,5 +1191,226 @@ export const drinkingGames: DrinkingGameRecord[] = [
     aiReviewHint: "知ったかぶりゲームとは違い、自分の体験風ストーリーが核。",
     sourceRefs: [],
     reviewedAt
+  },
+  {
+    id: "aburi-karubi",
+    title: "炙りカルビゲーム",
+    aliases: ["炙りカルビ"],
+    country: "日本",
+    minPlayers: 2,
+    maxPlayers: 8,
+    durationMin: 5,
+    summary: "短い言葉を言う回数が、手番ごとに増えていく反復チャレンジ。",
+    rules: ["全員で言いにくい短い言葉を1つ決める。", "最初の人は1回、次の人は2回と、手番ごとに連続して言う回数を1回ずつ増やす。", "回数を間違える、途中で詰まる、言葉を噛むと負け。"],
+    noEquipment: true,
+    mechanics: ["word", "memory", "tongue-twister", "cumulative"],
+    duplicateKey: "cumulative-tongue-twister",
+    aiReviewHint: "早口言葉チャレンジは難しい文章の発音、本ゲームは同じ短い言葉の反復回数を累積することが核。",
+    sourceRefs: ["miraizakaDrinkingGames"],
+    reviewedAt: latestReviewedAt
+  },
+  {
+    id: "no-duplicate-answer",
+    title: "かぶっちゃやーよ",
+    aliases: ["かぶっちゃダメゲーム", "回答かぶり禁止"],
+    country: "日本",
+    minPlayers: 3,
+    maxPlayers: 8,
+    durationMin: 5,
+    summary: "お題への答えを同時に言い、誰ともかぶらない答えを狙う。",
+    rules: ["親が、赤いもの、夏の食べ物など答えが複数あるお題を出す。", "合図に合わせて全員が答えを1つ同時に言う。", "同じ答えを言った人は脱落し、誰ともかぶらなかった人だけで次のお題へ進む。最後の1人が勝ち。"],
+    noEquipment: true,
+    mechanics: ["simultaneous-answer", "category", "prediction", "elimination"],
+    duplicateKey: "simultaneous-unique-answer",
+    aiReviewHint: "多数派・少数派ゲームは二択の人数差、本ゲームは自由回答で他人との重複を避けることが核。",
+    sourceRefs: ["yoyappinDrinkingGames"],
+    reviewedAt: latestReviewedAt
+  },
+  {
+    id: "strawberry-rhythm",
+    title: "いちごゲーム",
+    aliases: ["Strawberry Game", "Ddalgi Game", "딸기게임"],
+    country: "韓国",
+    minPlayers: 3,
+    maxPlayers: 8,
+    durationMin: 5,
+    summary: "4拍子に合わせ、同じ言葉を繰り返す回数を増減させるリズムゲーム。",
+    rules: ["全員で4拍子の手拍子を続ける。", "順番に、いちごを1回、2回と拍子に合わせて言い、8回まで増やしたら1回ずつ減らす。", "拍子、回数、順番を間違える、または詰まると負け。"],
+    noEquipment: true,
+    mechanics: ["rhythm", "repetition", "counting", "reaction"],
+    duplicateKey: "rhythm-repetition-ladder",
+    aiReviewHint: "炙りカルビゲームは手番ごとの累積反復、本ゲームは全員で刻む4拍子と1回から8回までの増減が核。",
+    sourceRefs: ["kVillageKoreanGames"],
+    reviewedAt: latestReviewedAt
+  },
+  {
+    id: "spoken-shown-number",
+    title: "言う数・見せる数",
+    aliases: ["口と手の数字ゲーム"],
+    hiddenAliases: ["Babo Game", "바보게임"],
+    country: "韓国",
+    minPlayers: 2,
+    maxPlayers: 8,
+    durationMin: 5,
+    summary: "前の人が指で見せた数を言いながら、別の数を指で見せる反応ゲーム。",
+    rules: ["使う数字を1から5に決め、最初の人が数字を言いながら、それとは違う数を指で見せる。", "次の人は、前の人が指で見せた数を言いながら、それとは違う数を指で見せる。", "言う数を間違える、同じ数を見せる、反応が遅れると負け。"],
+    noEquipment: true,
+    mechanics: ["number", "gesture", "mismatch", "reaction"],
+    duplicateKey: "spoken-shown-number-mismatch",
+    aiReviewHint: "指スマは全員の指の合計予想。本ゲームは前の手の数字を口で言い、自分の口と手を一致させないことが核。元名はhiddenAliasesに入れる。",
+    sourceRefs: ["geonbaeKoreanGames"],
+    reviewedAt: latestReviewedAt
+  },
+  {
+    id: "questions-only",
+    title: "質問だけ会話",
+    aliases: ["Questions Only", "質問会話ゲーム"],
+    country: "国際",
+    minPlayers: 2,
+    maxPlayers: 8,
+    durationMin: 5,
+    summary: "質問文だけを使い、途切れずに即興会話を続ける。",
+    rules: ["最初に2人を選び、場面や話題を1つ決める。", "2人は質問文だけで会話し、答えや説明を普通の文で言ってはいけない。", "質問以外を言う、同じ質問を繰り返す、長く詰まると交代する。最後まで残った人が勝ち。"],
+    noEquipment: true,
+    mechanics: ["conversation", "question", "improv", "elimination"],
+    duplicateKey: "questions-only-improv",
+    aiReviewHint: "質問マスターは会話中にマスターの質問へ普通に答えない継続ルール。本ゲームは参加者の全発言を質問文だけにする即興対戦。",
+    sourceRefs: ["hooplaQuestionsOnly"],
+    reviewedAt: latestReviewedAt
+  },
+  {
+    id: "listen-no-judge",
+    title: "聞くだけ告白タイム",
+    aliases: ["We Listen and We Don't Judge", "聞いて判断しない"],
+    country: "アメリカ",
+    intensity: "strong",
+    contentWarnings: ["秘密", "不満", "恋愛", "過去の失敗"],
+    minPlayers: 2,
+    maxPlayers: 8,
+    durationMin: 10,
+    summary: "順番に秘密や本音を話し、その場では反論せず最後まで聞く。",
+    rules: ["最初に、どこまで話すかと終了後に話し合うかを全員で決める。", "順番に、小さな秘密、不満、失敗談などを1つ話す。ほかの人は途中で反論や評価をしない。", "全員が話し終えたら終了する。答えたくない人はパスでき、続けたくない人が出たらその場で終える。"],
+    noEquipment: true,
+    mechanics: ["confession", "conversation", "listening", "turn-taking"],
+    duplicateKey: "listen-without-judging-confession",
+    aiReviewHint: "Never Have I Everは経験の有無、本ゲームは1人ずつ具体的な秘密や不満を話し、その場では評価しないことが核。",
+    sourceRefs: ["glamourListenJudge"],
+    reviewedAt: latestReviewedAt
+  },
+  {
+    id: "pass-the-phone",
+    title: "パス・ザ・フォン",
+    aliases: ["Pass the Phone Challenge", "Passing the Phone To"],
+    country: "国際",
+    intensity: "strong",
+    contentWarnings: ["人物評価", "欠点", "恋愛", "秘密"],
+    minPlayers: 3,
+    maxPlayers: 8,
+    durationMin: 10,
+    summary: "指名文に一番合う人へスマホを渡し、次の指名をつなげる。",
+    rules: ["最初の人が「次は、一番返信が遅い人へ渡して」のような指名文を決める。", "当てはまると思う人へスマホを渡し、渡された人が次の指名文を決める。", "全員へ渡るか、決めた回数が終わるまで続ける。答えたくない指名は飛ばしてよい。"],
+    noEquipment: true,
+    mechanics: ["handoff", "pointing", "social", "prompt"],
+    duplicateKey: "pass-phone-social-prompt",
+    aiReviewHint: "第一印象ゲームは全員同時の指さし投票。本ゲームは指名文に合わせてスマホを1人ずつ渡し続けることが核。",
+    sourceRefs: ["knowYourMemePassPhone"],
+    reviewedAt: latestReviewedAt
+  },
+  {
+    id: "hot-seat",
+    title: "ホットシート",
+    aliases: ["Hot Seat Questions", "Hot Seat Game"],
+    country: "国際",
+    intensity: "strong",
+    contentWarnings: ["秘密", "恋愛", "個人的な質問"],
+    minPlayers: 3,
+    maxPlayers: 8,
+    durationMin: 10,
+    summary: "1人へ短時間で質問を重ね、本音や意外な一面を引き出す。",
+    rules: ["最初のホットシート役と制限時間を決める。", "ほかの人は順番に質問し、ホットシート役はテンポよく答える。答えたくない質問はパスできる。", "時間が来たら次の人へ交代し、全員の手番が終わったら終了する。"],
+    noEquipment: true,
+    mechanics: ["question", "conversation", "timer", "spotlight"],
+    duplicateKey: "hot-seat-rapid-questions",
+    aiReviewHint: "真実か挑戦かは質問か挑戦を選ぶ。本ゲームは一定時間、1人へ連続して質問することが核。",
+    sourceRefs: ["paradeHotSeat"],
+    reviewedAt: latestReviewedAt
+  },
+  {
+    id: "honest-ranking-guess",
+    title: "本音ランキング当て",
+    aliases: ["First to Worst", "秘密ランキング当て"],
+    country: "国際",
+    intensity: "strong",
+    contentWarnings: ["人物評価", "恋愛", "価値観"],
+    minPlayers: 3,
+    maxPlayers: 8,
+    durationMin: 10,
+    summary: "1人が作った本音の順位を、ほかの人が予想する。",
+    rules: ["親が5つの候補を決め、自分の好きな順に頭の中で順位をつける。", "ほかの人は相談して、親がつけたと思う順位を予想する。", "親が本当の順位を公開し、当たった位置の数を得点にする。親を交代して続ける。"],
+    noEquipment: true,
+    mechanics: ["ranking", "prediction", "social", "reveal"],
+    duplicateKey: "guess-another-person-ranking",
+    aiReviewHint: "ブラインドランキングは未来の項目を知らず自分の順位枠を埋める。本ゲームは他人が秘密で作った順位を予想することが核。",
+    sourceRefs: ["targetFirstWorst"],
+    reviewedAt: latestReviewedAt
+  },
+  {
+    id: "instant-answer-trap",
+    title: "即答トラップ",
+    aliases: ["Name a Woman Challenge", "Relationship Test Challenge"],
+    country: "アメリカ",
+    intensity: "strong",
+    contentWarnings: ["恋愛", "人物名", "人間関係"],
+    minPlayers: 2,
+    maxPlayers: 8,
+    durationMin: 5,
+    summary: "予告なしの短い質問へ即答し、最初に浮かんだ答えを楽しむ。",
+    rules: ["質問する人が、人物名や価値観を答える短い質問を選ぶ。", "回答者は考え込まず、最初に浮かんだ答えをすぐ言う。", "全員で理由を聞いて反応を楽しみ、回答者を交代する。答えに正解があるとは扱わない。"],
+    noEquipment: true,
+    mechanics: ["rapid-answer", "conversation", "relationship-test", "reaction"],
+    duplicateKey: "instant-relationship-test-answer",
+    aiReviewHint: "質問ゲームではなく、予告なしの短い問いへの最初の回答と周囲の反応を楽しむSNS関係性テスト系。",
+    sourceRefs: ["businessInsiderNameWoman"],
+    reviewedAt: latestReviewedAt
+  },
+  {
+    id: "yes-or-no-attraction",
+    title: "あり・なしジャッジ",
+    aliases: ["ありなしゲーム", "恋愛ジャッジ"],
+    hiddenAliases: ["Smash or Pass"],
+    country: "国際",
+    specialCategory: "下ネタ",
+    intensity: "strong",
+    contentWarnings: ["恋愛", "性的な話題", "人物評価"],
+    minPlayers: 2,
+    maxPlayers: 8,
+    durationMin: 10,
+    summary: "人物や特徴を恋愛対象としてありかなしか即答し、理由を話す。",
+    rules: ["親が、架空の人物、著名人、性格や行動などの候補を1つ出す。", "全員が同時に、恋愛対象としてありかなしか答える。", "意見が分かれた人から理由を話す。参加者本人や無断で用意した写真は対象にしない。"],
+    noEquipment: true,
+    mechanics: ["attraction", "two-choice", "conversation", "vote"],
+    duplicateKey: "attraction-yes-no-judgment",
+    aiReviewHint: "Would You Ratherは二択の選好、本ゲームは人物や特徴を恋愛対象として評価することが核。元名はhiddenAliasesに入れる。",
+    sourceRefs: ["wikipediaSmashPass"],
+    reviewedAt: latestReviewedAt
+  },
+  {
+    id: "flag-judgment",
+    title: "レッド・ベージュ・グリーン",
+    aliases: ["Red Flag Green Flag", "Beige Flag", "フラッグジャッジ"],
+    country: "国際",
+    intensity: "strong",
+    contentWarnings: ["恋愛", "人物評価", "価値観"],
+    minPlayers: 2,
+    maxPlayers: 8,
+    durationMin: 10,
+    summary: "人の行動を危険、気になるだけ、好印象の3段階で判定して議論する。",
+    rules: ["親が、恋愛や友人関係で起こりそうな行動を1つ出す。", "全員が同時に、レッド、ベージュ、グリーンのどれかで判定する。", "意見が分かれた人から理由を話し、次のお題へ進む。"],
+    noEquipment: true,
+    mechanics: ["three-choice", "relationship", "conversation", "values"],
+    duplicateKey: "red-beige-green-flag-judgment",
+    aiReviewHint: "10点満点は条件で点数を上下させる。本ゲームは行動を危険、中立的な癖、好印象の3段階に分類して議論することが核。",
+    sourceRefs: ["timeBeigeFlags"],
+    reviewedAt: latestReviewedAt
   }
 ];

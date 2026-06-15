@@ -23,6 +23,8 @@ UIで表示する通常カテゴリは国だけです。国が特定できない
 
 例外として、少し大人向けの会話ゲームだけ `下ネタ` を特別カテゴリとして表示できます。ただし直接的なゲーム名や説明は避け、画面には婉曲なタイトルとルールだけを出します。
 
+人間関係、秘密、恋愛、人物評価へ踏み込む刺激強めのゲームも収録対象です。刺激強めであることを理由に除外せず、一覧時点で内容を伝え、回答拒否や途中終了を選べる設計にします。通常カテゴリは増やさず、`intensity` と `contentWarnings` で表示と絞り込みを制御します。
+
 ## データ構造
 
 実データは `src/data/drinkingGames.ts` に置きます。
@@ -46,6 +48,8 @@ type DrinkingGameRecord = {
   aiReviewHint: string;
   sourceRefs: string[];
   reviewedAt: string;
+  intensity?: "light" | "strong";
+  contentWarnings?: string[];
 };
 ```
 
@@ -59,6 +63,8 @@ type DrinkingGameRecord = {
 - `aiReviewHint`: AIが「これは同じ遊びか、派生か」を判断するためのメモ。
 - `sourceRefs`: `drinkingGameSourceRefs` のキーを入れる。URLを直接重複記述しない。
 - `reviewedAt`: 最後に人間またはAIが確認した日付。
+- `intensity`: 人間関係へ踏み込む候補は `strong` とする。国カテゴリとは分けて絞り込む。
+- `contentWarnings`: 一覧時点の内容表示用。例: `秘密`、`恋愛`、`人物評価`、`過去の失敗`。
 
 ## 追加判定フロー
 
@@ -74,6 +80,7 @@ AI/cronで新候補を見つけたら、次の順番で判定します。
 8. ルール文は外部サイトをコピーせず、短い独自文言で書く。
 9. 下ネタ寄りの候補は、直接語を `hiddenAliases` に置き、`title`、`summary`、`rules` は婉曲に書く。
 10. `npm run smoke`、`npm run typecheck`、`npm run build` を通す。
+11. 刺激強めのゲームは除外せず、必要な `intensity` と `contentWarnings` の案を残す。
 
 ## 重複しやすい例
 
@@ -97,6 +104,8 @@ AI/cronで新候補を見つけたら、次の順番で判定します。
 ## cron更新の将来設計
 
 cronは直接 `main` にpushしません。候補を作り、差分をレビューできる形にします。
+
+海外SNSで流行するゲームやチャレンジを調査するときは、`docs/drinking-games-social-media-research-2026-06-15.md` の安全性、重複、実装形態の判定も参照します。
 
 想定手順:
 
@@ -130,5 +139,17 @@ cronは直接 `main` にpushしません。候補を作り、差分をレビュ�
 - Imposter Games: `imposterGames`
 - Wikipedia追加: `wikipediaKings`, `wikipediaYesNoBlackWhite`
 - RAGNET: `ragnetToolless`
+- ミライザカ: `miraizakaDrinkingGames`
+- Yoyappin: `yoyappinDrinkingGames`
+- K Village: `kVillageKoreanGames`
+- Geonbae: `geonbaeKoreanGames`
+- Hoopla Impro: `hooplaQuestionsOnly`
+- Glamour: `glamourListenJudge`
+- Know Your Meme: `knowYourMemePassPhone`
+- Parade: `paradeHotSeat`
+- Target: `targetFirstWorst`
+- Business Insider: `businessInsiderNameWoman`
+- Wikipedia追加: `wikipediaSmashPass`
+- TIME: `timeBeigeFlags`
 
 各URLは `src/data/drinkingGames.ts` の `drinkingGameSourceRefs` を参照してください。

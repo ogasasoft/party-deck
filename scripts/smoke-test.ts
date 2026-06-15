@@ -187,12 +187,13 @@ function smokeGeoGuessr() {
 }
 
 function smokeDrinkingGames() {
-  assert.ok(drinkingGames.length >= 60);
+  assert.ok(drinkingGames.length >= 82);
   assert.equal(new Set(drinkingGames.map((game) => game.id)).size, drinkingGames.length);
   assert.ok(drinkingGames.every((game) => game.noEquipment));
   assert.ok(drinkingGames.every((game) => game.rules.length >= 3));
   assert.ok(drinkingGames.every((game) => game.duplicateKey.length > 0));
   assert.ok(drinkingGames.every((game) => game.sourceRefs.every((sourceRef) => sourceRef in drinkingGameSourceRefs)));
+  assert.ok(drinkingGames.filter((game) => game.intensity === "strong").every((game) => (game.contentWarnings?.length ?? 0) > 0));
 
   const state = createDrinkingGamesState(defaultDrinkingGamesConfig());
   assert.equal(filterDrinkingGames({ ...state, query: "NG", country: "all" }).some((game) => game.id === "ng-word"), true);
@@ -200,11 +201,19 @@ function smokeDrinkingGames() {
   assert.equal(filterDrinkingGames({ ...state, query: "Son Byung Ho", country: "all" }).some((game) => game.id === "never-have-i-ever"), true);
   assert.equal(filterDrinkingGames({ ...state, query: "007", country: "all" }).some((game) => game.id === "zero-zero-seven-bang"), true);
   assert.equal(filterDrinkingGames({ ...state, query: "ほうれん草", country: "all" }).some((game) => game.id === "spinach-relay"), true);
+  assert.equal(filterDrinkingGames({ ...state, query: "炙りカルビ", country: "all" }).some((game) => game.id === "aburi-karubi"), true);
+  assert.equal(filterDrinkingGames({ ...state, query: "Babo Game", country: "all" }).some((game) => game.id === "spoken-shown-number"), true);
+  assert.equal(filterDrinkingGames({ ...state, query: "Questions Only", country: "all" }).some((game) => game.id === "questions-only"), true);
+  assert.equal(filterDrinkingGames({ ...state, query: "Smash or Pass", country: "all" }).some((game) => game.id === "yes-or-no-attraction"), true);
+  assert.equal(filterDrinkingGames({ ...state, query: "秘密", country: "all" }).some((game) => game.id === "listen-no-judge"), true);
   assert.equal(filterDrinkingGames({ ...state, query: "", country: "日本" }).every((game) => game.country === "日本"), true);
   assert.equal(filterDrinkingGames({ ...state, query: "", country: "韓国" }).some((game) => game.id === "apt-game"), true);
+  assert.equal(filterDrinkingGames({ ...state, query: "", country: "韓国" }).some((game) => game.id === "strawberry-rhythm"), true);
   assert.equal(filterDrinkingGames({ ...state, query: "", country: "韓国" }).some((game) => game.id === "baskin-robbins-31"), true);
   assert.equal(filterDrinkingGames({ ...state, query: "", country: "韓国" }).some((game) => game.id === "sam-yuk-gu"), true);
   assert.equal(filterDrinkingGames({ ...state, query: "", country: "下ネタ" }).every((game) => game.specialCategory === "下ネタ"), true);
+  assert.equal(filterDrinkingGames({ ...state, query: "", country: "all", intensity: "strong" }).every((game) => game.intensity === "strong"), true);
+  assert.equal(filterDrinkingGames({ ...state, query: "", country: "all", intensity: "light" }).every((game) => !game.intensity || game.intensity === "light"), true);
 }
 
 function smokeWordInfiltrator() {

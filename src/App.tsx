@@ -1235,6 +1235,24 @@ function DrinkingGamesBrowser(props: {
               </button>
             ))}
           </div>
+          <div className="filter-section">
+            <span className="field-label">刺激度</span>
+            <div className="filter-row" role="group" aria-label="刺激度で絞り込み">
+              <button type="button" className={props.state.intensity === "all" ? "active" : ""} onClick={() => props.setState({ ...props.state, intensity: "all" })}>
+                すべて
+              </button>
+              <button type="button" className={props.state.intensity === "light" ? "active" : ""} onClick={() => props.setState({ ...props.state, intensity: "light" })}>
+                ライト
+              </button>
+              <button
+                type="button"
+                className={props.state.intensity === "strong" ? "active strong-filter" : "strong-filter"}
+                onClick={() => props.setState({ ...props.state, intensity: "strong" })}
+              >
+                刺激強め
+              </button>
+            </div>
+          </div>
           <div className="muted">{gamesToShow.length}件</div>
         </div>
 
@@ -1243,7 +1261,7 @@ function DrinkingGamesBrowser(props: {
         ) : (
           <div className="drink-game-list">
             {gamesToShow.map((game) => (
-              <article key={game.id} className="drink-game-card">
+              <article key={game.id} className={game.intensity === "strong" ? "drink-game-card strong-game-card" : "drink-game-card"}>
                 <div className="drink-game-head">
                   <div>
                     <h2>{game.title}</h2>
@@ -1252,6 +1270,7 @@ function DrinkingGamesBrowser(props: {
                   <div className="card-pills">
                     {game.country && <span className="pill">{game.country}</span>}
                     {game.specialCategory && <span className="pill special-pill">{game.specialCategory}</span>}
+                    {game.intensity === "strong" && <span className="pill strong-pill">刺激強め</span>}
                   </div>
                 </div>
                 <div className="drink-game-meta">
@@ -1259,6 +1278,13 @@ function DrinkingGamesBrowser(props: {
                   <span>約{game.durationMin}分</span>
                   <span>道具なし</span>
                 </div>
+                {game.intensity === "strong" && game.contentWarnings && (
+                  <div className="drink-game-warning">
+                    <strong>含まれる話題</strong>
+                    <span>{game.contentWarnings.join("・")}</span>
+                    <small>答えたくない内容はパスでき、いつでも終了できます。</small>
+                  </div>
+                )}
                 <details className="drink-game-details">
                   <summary>ルールを見る</summary>
                   <ol>
@@ -2179,6 +2205,7 @@ function sanitizeLoadedDrinkingGamesState(state: DrinkingGamesState | null): Dri
   const next = structuredClone(state);
   next.phase = "browse";
   next.country = next.country ?? "all";
+  next.intensity = next.intensity === "light" || next.intensity === "strong" ? next.intensity : "all";
   next.query = next.query ?? "";
   return next;
 }

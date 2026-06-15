@@ -140,6 +140,8 @@ So that その場で次に遊ぶゲームをすぐ決められる
 - ゲーム名、別名、ルール文で検索できる。
 - 国と `下ネタ` 特別カテゴリで絞り込みできる。
 - 表示カテゴリは原則として国だけにし、例外カテゴリは `下ネタ` のみとする。
+- 秘密、恋愛、人物評価などへ踏み込む刺激強めのゲームも検索して選べる。
+- 刺激強めのゲームは開始前に内容を表示し、回答拒否や途中終了ができる。
 
 ### US-DRINK-002 AIが重複を判断して追加できる
 
@@ -149,12 +151,13 @@ So that データベースを継続的に増やせる
 
 受け入れ条件:
 
-- 各ゲームに `id`、`title`、`aliases`、`hiddenAliases`、`country`、`specialCategory`、`rules`、`duplicateKey`、`aiReviewHint`、`sourceRefs`、`reviewedAt` を持てる。
+- 各ゲームに `id`、`title`、`aliases`、`hiddenAliases`、`country`、`specialCategory`、`rules`、`duplicateKey`、`aiReviewHint`、`sourceRefs`、`reviewedAt`、`intensity`、`contentWarnings` を持てる。
 - 既存ゲームと同じ核のルールなら新規追加せず、別名や参照元を既存レコードへ追記する。
 - 新規追加時はルール文を独自文言で要約し、外部サイト本文をコピーしない。
 - 直接的な元ネタ名は `hiddenAliases` に入れ、UIへ表示しない。
 - 道具を使うゲームは初期辞典には入れない。
 - 道具やカード判定が核の候補は、辞典ではなく将来の実装候補として扱う。
+- 人間関係へ踏み込むことだけを理由に候補を除外しない。
 
 ## 追加テーブルゲーム ユーザーストーリー
 

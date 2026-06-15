@@ -1,4 +1,4 @@
-import { drinkingGames } from "../data/drinkingGames";
+import { drinkingGames, type DrinkingGameIntensity } from "../data/drinkingGames";
 
 export type DrinkingGamesConfig = {
   viewMode: "database";
@@ -9,6 +9,7 @@ export type DrinkingGamesState = {
   config: DrinkingGamesConfig;
   query: string;
   country: "all" | string;
+  intensity: "all" | DrinkingGameIntensity;
   selectedGameId?: string;
 };
 
@@ -23,7 +24,8 @@ export function createDrinkingGamesState(config: DrinkingGamesConfig): DrinkingG
     phase: "browse",
     config,
     query: "",
-    country: "all"
+    country: "all",
+    intensity: "all"
   };
 }
 
@@ -40,6 +42,8 @@ export function filterDrinkingGames(state: DrinkingGamesState) {
   return drinkingGames.filter((game) => {
     const filterMatched = state.country === "all" || game.country === state.country || game.specialCategory === state.country;
     if (!filterMatched) return false;
+    const gameIntensity = game.intensity ?? "light";
+    if (state.intensity !== "all" && gameIntensity !== state.intensity) return false;
     if (!normalizedQuery) return true;
     const haystack = normalizeSearchText([
       game.title,
@@ -48,6 +52,8 @@ export function filterDrinkingGames(state: DrinkingGamesState) {
       game.summary,
       game.aliases.join(" "),
       game.hiddenAliases?.join(" ") ?? "",
+      game.intensity,
+      game.contentWarnings?.join(" ") ?? "",
       game.mechanics.join(" "),
       game.rules.join(" ")
     ].join(" "));
