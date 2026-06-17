@@ -8,7 +8,9 @@ export type GameId =
   | "spy-location"
   | "spectrum-meter"
   | "ranking-answers"
-  | "fake-artist";
+  | "fake-artist"
+  | "majority-match"
+  | "one-word-clue";
 
 export type Player = {
   id: string;

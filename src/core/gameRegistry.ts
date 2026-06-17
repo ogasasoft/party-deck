@@ -3,7 +3,9 @@ import { loadPlayableGeoLocations } from "../games/geoLocationRepository";
 import { createDrinkingGamesState, defaultDrinkingGamesConfig, type DrinkingGamesConfig, type DrinkingGamesState } from "../games/drinkingGames";
 import { createFakeArtistState, defaultFakeArtistConfig, type FakeArtistConfig, type FakeArtistState } from "../games/fakeArtist";
 import { createInsiderGuessState, defaultInsiderGuessConfig, type InsiderGuessConfig, type InsiderGuessState } from "../games/insiderGuess";
+import { createMajorityMatchState, defaultMajorityMatchConfig, type MajorityMatchConfig, type MajorityMatchState } from "../games/majorityMatch";
 import { createNumberTalkState, defaultNumberTalkConfig, type NumberTalkConfig, type NumberTalkState } from "../games/numberTalk";
+import { createOneWordClueState, defaultOneWordClueConfig, type OneWordClueConfig, type OneWordClueState } from "../games/oneWordClue";
 import { createRankingAnswersState, defaultRankingAnswersConfig, type RankingAnswersConfig, type RankingAnswersState } from "../games/rankingAnswers";
 import { createSpyLocationState, defaultSpyLocationConfig, type SpyLocationConfig, type SpyLocationState } from "../games/spyLocation";
 import { createSpectrumMeterState, defaultSpectrumMeterConfig, type SpectrumMeterConfig, type SpectrumMeterState } from "../games/spectrumMeter";
@@ -22,6 +24,8 @@ export type GameDefinitionMap = {
   "spectrum-meter": GameDefinition<SpectrumMeterConfig, SpectrumMeterState>;
   "ranking-answers": GameDefinition<RankingAnswersConfig, RankingAnswersState>;
   "fake-artist": GameDefinition<FakeArtistConfig, FakeArtistState>;
+  "majority-match": GameDefinition<MajorityMatchConfig, MajorityMatchState>;
+  "one-word-clue": GameDefinition<OneWordClueConfig, OneWordClueState>;
 };
 
 export const gameDefinitions: GameDefinitionMap = {
@@ -119,6 +123,24 @@ export const gameDefinitions: GameDefinitionMap = {
     maxPlayers: 8,
     defaultConfig: defaultFakeArtistConfig,
     createState: ({ players, config, seed }) => createFakeArtistState(players, config, seed)
+  },
+  "majority-match": {
+    id: "majority-match",
+    title: "みんなと同じ回答",
+    description: "みんなが書きそうな答えを秘密に入力し、最多回答と一致すると得点です。",
+    minPlayers: 4,
+    maxPlayers: 8,
+    defaultConfig: defaultMajorityMatchConfig,
+    createState: ({ players, config, seed }) => createMajorityMatchState(players, config, seed)
+  },
+  "one-word-clue": {
+    id: "one-word-clue",
+    title: "ワンワード協力クイズ",
+    description: "一人ずつ秘密のヒントを出し、重複を消して回答者を正解へ導きます。",
+    minPlayers: 3,
+    maxPlayers: 8,
+    defaultConfig: defaultOneWordClueConfig,
+    createState: ({ players, config, seed }) => createOneWordClueState(players, config, seed)
   }
 };
 
@@ -132,6 +154,8 @@ const gameOrder: GameId[] = [
   "spectrum-meter",
   "ranking-answers",
   "fake-artist",
+  "majority-match",
+  "one-word-clue",
   "geo"
 ];
 

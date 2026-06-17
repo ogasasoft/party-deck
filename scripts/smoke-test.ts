@@ -12,9 +12,13 @@ import { fakeArtistTopics } from "../src/data/fakeArtistTopics";
 import { createFakeArtistState, currentDrawingPlayerId, defaultFakeArtistConfig, judgeFakeArtist, submitFakeArtistVote } from "../src/games/fakeArtist";
 import { insiderAnswers } from "../src/data/insiderAnswers";
 import { createInsiderGuessState, defaultInsiderGuessConfig, getInsiderRole, judgeInsiderGuess, submitInsiderGuessVote, type InsiderGuessState } from "../src/games/insiderGuess";
+import { majorityMatchPrompts } from "../src/data/majorityMatchPrompts";
+import { createMajorityMatchState, defaultMajorityMatchConfig, scoreMajorityMatchRound, submitMajorityMatchAnswer, totalMajorityMatchScore } from "../src/games/majorityMatch";
 import { createMapillaryImageEndpoint } from "../src/games/mapillaryProvider";
 import { numberTalkTopics } from "../src/data/numberTopics";
 import { createNumberTalkState, defaultNumberTalkConfig, isNumberOrderCorrect } from "../src/games/numberTalk";
+import { oneWordClueWords } from "../src/data/oneWordClueWords";
+import { activeOneWordClues, createOneWordClueState, currentOneWordCluePlayerId, currentOneWordClueRound, defaultOneWordClueConfig, submitOneWordClue, submitOneWordGuess } from "../src/games/oneWordClue";
 import { rankingAnswerPrompts } from "../src/data/rankingAnswerPrompts";
 import { computeRankingMistakes, createRankingAnswersState, currentRankingRound, defaultRankingAnswersConfig, getRankingNumberForPlayer, totalRankingMistakes, updateCurrentRankingRound } from "../src/games/rankingAnswers";
 import { spyLocations } from "../src/data/spyLocations";
@@ -41,7 +45,7 @@ const players = DEFAULT_PLAYERS.slice(0, 4);
 function smokeGameRegistry() {
   assert.deepEqual(
     games.map((game) => game.id),
-    ["drinking-games", "number-talk", "werewolf", "word-infiltrator", "insider-guess", "spy-location", "spectrum-meter", "ranking-answers", "fake-artist", "geo"]
+    ["drinking-games", "number-talk", "werewolf", "word-infiltrator", "insider-guess", "spy-location", "spectrum-meter", "ranking-answers", "fake-artist", "majority-match", "one-word-clue", "geo"]
   );
   assert.equal(games[0].id, "drinking-games");
   assert.equal(getGameDefinition("geo").availability, "paused");
@@ -57,6 +61,8 @@ function smokeGameRegistry() {
   assert.equal(getGameDefinition("spectrum-meter").minPlayers, 4);
   assert.equal(getGameDefinition("ranking-answers").minPlayers, 4);
   assert.equal(getGameDefinition("fake-artist").minPlayers, 5);
+  assert.equal(getGameDefinition("majority-match").minPlayers, 4);
+  assert.equal(getGameDefinition("one-word-clue").minPlayers, 3);
   assert.equal(formatClock(180), "3:00");
   assert.equal(formatClock(5), "0:05");
 }
@@ -384,6 +390,43 @@ function smokeFakeArtist() {
   assert.equal(tiedResult.caught, false);
 }
 
+function smokeMajorityMatch() {
+  assert.equal(majorityMatchPrompts.length, 28);
+  assert.equal(new Set(majorityMatchPrompts.map((prompt) => prompt.id)).size, majorityMatchPrompts.length);
+  assert.equal(new Set(majorityMatchPrompts.map((prompt) => prompt.text)).size, majorityMatchPrompts.length);
+
+  let state = createMajorityMatchState(players, defaultMajorityMatchConfig(), "smoke-majority");
+  assert.equal(state.phase, "answerHandoff");
+  assert.equal(state.rounds.length, 5);
+  state = submitMajorityMatchAnswer(state, { playerId: players[0].id, text: "カレー" });
+  state = submitMajorityMatchAnswer(state, { playerId: players[1].id, text: "カレー！" });
+  state = submitMajorityMatchAnswer(state, { playerId: players[2].id, text: "ラーメン" });
+  state = submitMajorityMatchAnswer(state, { playerId: players[3].id, text: "うどん" });
+  const result = scoreMajorityMatchRound(state.rounds[0]);
+  assert.equal(result.largestGroupSize, 2);
+  assert.equal(result.pointsByPlayerId[players[0].id], 1);
+  assert.equal(totalMajorityMatchScore(state, players[1].id), 1);
+}
+
+function smokeOneWordClue() {
+  assert.equal(oneWordClueWords.length, 40);
+  assert.equal(new Set(oneWordClueWords.map((word) => word.id)).size, oneWordClueWords.length);
+  assert.equal(new Set(oneWordClueWords.map((word) => word.text)).size, oneWordClueWords.length);
+
+  let state = createOneWordClueState(players, defaultOneWordClueConfig(), "smoke-one-word");
+  assert.equal(state.phase, "clueHandoff");
+  assert.equal(state.rounds.length, 5);
+  const round = currentOneWordClueRound(state);
+  assert.equal(round.cluePlayerIds.length, players.length - 1);
+  state = submitOneWordClue(state, round.cluePlayerIds[0], "黄色");
+  state = submitOneWordClue(state, round.cluePlayerIds[1], "黄色！");
+  state = submitOneWordClue(state, round.cluePlayerIds[2], "甘い");
+  assert.equal(activeOneWordClues(state).length, 1);
+  assert.ok(currentOneWordCluePlayerId(state));
+  const guessed = submitOneWordGuess(state, round.target.text);
+  assert.equal(currentOneWordClueRound(guessed).correct, true);
+}
+
 smokeGameRegistry();
 smokeReloadSafety();
 smokeNumberTalk();
@@ -396,5 +439,7 @@ smokeSpyLocation();
 smokeSpectrumMeter();
 smokeRankingAnswers();
 smokeFakeArtist();
+smokeMajorityMatch();
+smokeOneWordClue();
 
 console.log("smoke ok");

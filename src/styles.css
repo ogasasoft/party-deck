@@ -366,6 +366,12 @@ h1 {
   gap: 8px;
 }
 
+.answer-input {
+  min-height: 58px;
+  font-size: 18px;
+  font-weight: 850;
+}
+
 .answer-row {
   grid-template-columns: auto minmax(76px, 0.5fr) minmax(0, 1fr);
   border: 1px solid var(--line);
@@ -663,6 +669,64 @@ button.candidate-chip.active {
   display: grid;
   gap: 5px;
   padding: 12px;
+}
+
+.clue-review-list {
+  display: grid;
+  gap: 8px;
+}
+
+.clue-review-row {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+}
+
+.clue-review-row span:last-child {
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.clue-review-row.cancelled {
+  background: #f3eee7;
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.clue-review-row.cancelled span:last-child {
+  color: var(--red);
+  text-decoration: none;
+}
+
+.clue-cloud {
+  min-height: 180px;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.clue-cloud span {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbf6ee;
+  padding: 10px 12px;
+  font-size: 18px;
+  font-weight: 950;
+  overflow-wrap: anywhere;
 }
 
 .meter-card,
@@ -1454,11 +1518,7 @@ button.candidate-chip.active {
   }
 }
 
-@media (max-width: 380px) {
-  .content {
-    padding: 12px;
-  }
-
+@media (max-width: 430px) {
   .setting-row,
   .topic-preview-card {
     grid-template-columns: 1fr;
@@ -1466,6 +1526,24 @@ button.candidate-chip.active {
 
   .compact-button {
     width: 100%;
+  }
+
+  .setting-row .segmented {
+    width: 100%;
+  }
+
+  .setting-row .segmented button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: 6px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 380px) {
+  .content {
+    padding: 12px;
   }
 
   .vote-grid {

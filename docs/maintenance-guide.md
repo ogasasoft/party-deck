@@ -51,7 +51,7 @@ MVPの画面進行の中心です。以下を持っています。
 - localStorage復元と保存
 - 秘密情報画面のリロード対策
 
-追加テーブルゲーム6本の画面は `src/features/AddedTableGames.tsx` に分割済みです。Topbar、受け渡し、プレイヤー順、結果アクション、広告枠などの共通UIは `src/components/PartyScreens.tsx` に寄せています。さらに分割する場合も、既存の受け渡しとリロード保護を壊さないでください。
+追加テーブルゲーム6本の画面は `src/features/AddedTableGames.tsx`、みんなと同じ回答とワンワード協力クイズは `src/features/QuickPartyGames.tsx` に分割済みです。Topbar、受け渡し、プレイヤー順、結果アクション、広告枠などの共通UIは `src/components/PartyScreens.tsx` に寄せています。さらに分割する場合も、既存の受け渡しとリロード保護を壊さないでください。
 
 ### `src/features/AddedTableGames.tsx`
 
@@ -63,6 +63,14 @@ MVPの画面進行の中心です。以下を持っています。
 - 秘密確認や投票中は `AdSlot` を出さない。
 - 秘密投票中は戻るボタンを出さず、受け渡しから投票へ一方向に進める。
 - `App.tsx` 側の保存、復元、sanitize処理とphase名をずらさない。
+
+### `src/features/QuickPartyGames.tsx`
+
+みんなと同じ回答、ワンワード協力クイズの画面群です。`App.tsx` から別chunkとしてlazy loadします。
+
+- 秘密回答、秘密ヒント、回答者の推理中は広告を出さない。
+- `majorityMatch.ts` と `oneWordClue.ts` に採点、正規化、重複取消を閉じ込める。
+- リロード時は `answer`、`clueEntry`、`clueReview`、`guess` から対応する受け渡しへ戻す。
 
 ### `src/core/gameRegistry.ts`
 

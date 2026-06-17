@@ -107,11 +107,25 @@ import {
   type FakeArtistConfig,
   type FakeArtistState
 } from "./games/fakeArtist";
+import { MajorityMatchCategory, majorityMatchPrompts } from "./data/majorityMatchPrompts";
+import {
+  defaultMajorityMatchConfig,
+  type MajorityMatchConfig,
+  type MajorityMatchState
+} from "./games/majorityMatch";
+import { OneWordClueCategory, oneWordClueWords } from "./data/oneWordClueWords";
+import {
+  defaultOneWordClueConfig,
+  type OneWordClueConfig,
+  type OneWordClueState
+} from "./games/oneWordClue";
 
 type Screen = "home" | "players" | "setup" | "game";
 
 const AddedTableGameScreens = lazy(() => import("./features/AddedTableGames"));
+const QuickPartyGameScreens = lazy(() => import("./features/QuickPartyGames"));
 const addedTableGameIds = ["word-infiltrator", "insider-guess", "spy-location", "spectrum-meter", "ranking-answers", "fake-artist"] as const satisfies readonly GameId[];
+const quickPartyGameIds = ["majority-match", "one-word-clue"] as const satisfies readonly GameId[];
 
 const wordInfiltratorCategoryOptions = [...new Set(wordInfiltratorTopics.map((topic) => topic.category))];
 const wordInfiltratorCategoryLabels: Record<"all" | WordInfiltratorCategory, string> = {
@@ -170,6 +184,22 @@ const fakeArtistCategoryLabels: Record<"all" | FakeArtistCategory, string> = {
   object: "もの",
   event: "できごと"
 };
+const majorityMatchCategoryOptions = [...new Set(majorityMatchPrompts.map((prompt) => prompt.category))];
+const majorityMatchCategoryLabels: Record<"all" | MajorityMatchCategory, string> = {
+  all: "すべて",
+  daily: "日常",
+  food: "食べ物",
+  party: "パーティ",
+  imagination: "想像"
+};
+const oneWordClueCategoryOptions = [...new Set(oneWordClueWords.map((word) => word.category))];
+const oneWordClueCategoryLabels: Record<"all" | OneWordClueCategory, string> = {
+  all: "すべて",
+  daily: "日常",
+  food: "食べ物",
+  nature: "自然",
+  culture: "カルチャー"
+};
 
 function pickNumberTalkTopicId(category: NumberTalkCategory, currentTopicId?: string) {
   const topics = getNumberTalkTopicsForCategory(category);
@@ -209,6 +239,8 @@ type PersistedAppState = {
   spectrumMeterConfig: SpectrumMeterConfig;
   rankingAnswersConfig: RankingAnswersConfig;
   fakeArtistConfig: FakeArtistConfig;
+  majorityMatchConfig: MajorityMatchConfig;
+  oneWordClueConfig: OneWordClueConfig;
   activeSession: ActiveSessionRef | null;
 };
 
@@ -223,6 +255,8 @@ type RestoredAppState = PersistedAppState & {
   spectrumMeterState: SpectrumMeterState | null;
   rankingAnswersState: RankingAnswersState | null;
   fakeArtistState: FakeArtistState | null;
+  majorityMatchState: MajorityMatchState | null;
+  oneWordClueState: OneWordClueState | null;
 };
 
 export function App() {
@@ -240,6 +274,8 @@ export function App() {
   const [spectrumMeterConfig, setSpectrumMeterConfig] = useState<SpectrumMeterConfig>(() => normalizeSpectrumMeterConfig(restored?.spectrumMeterConfig ?? defaultSpectrumMeterConfig()));
   const [rankingAnswersConfig, setRankingAnswersConfig] = useState<RankingAnswersConfig>(() => restored?.rankingAnswersConfig ?? defaultRankingAnswersConfig());
   const [fakeArtistConfig, setFakeArtistConfig] = useState<FakeArtistConfig>(() => restored?.fakeArtistConfig ?? defaultFakeArtistConfig());
+  const [majorityMatchConfig, setMajorityMatchConfig] = useState<MajorityMatchConfig>(() => restored?.majorityMatchConfig ?? defaultMajorityMatchConfig());
+  const [oneWordClueConfig, setOneWordClueConfig] = useState<OneWordClueConfig>(() => restored?.oneWordClueConfig ?? defaultOneWordClueConfig());
   const [geoState, setGeoState] = useState<GeoState | null>(restored?.geoState ?? null);
   const [numberState, setNumberState] = useState<NumberTalkState | null>(restored?.numberState ?? null);
   const [werewolfState, setWerewolfState] = useState<WerewolfState | null>(restored?.werewolfState ?? null);
@@ -250,6 +286,8 @@ export function App() {
   const [spectrumMeterState, setSpectrumMeterState] = useState<SpectrumMeterState | null>(restored?.spectrumMeterState ?? null);
   const [rankingAnswersState, setRankingAnswersState] = useState<RankingAnswersState | null>(restored?.rankingAnswersState ?? null);
   const [fakeArtistState, setFakeArtistState] = useState<FakeArtistState | null>(restored?.fakeArtistState ?? null);
+  const [majorityMatchState, setMajorityMatchState] = useState<MajorityMatchState | null>(restored?.majorityMatchState ?? null);
+  const [oneWordClueState, setOneWordClueState] = useState<OneWordClueState | null>(restored?.oneWordClueState ?? null);
   const [activeSession, setActiveSession] = useState<ActiveSessionRef | null>(restored?.activeSession ?? null);
   const [isStarting, setIsStarting] = useState(false);
 
@@ -279,7 +317,9 @@ export function App() {
           spyLocationState,
           spectrumMeterState,
           rankingAnswersState,
-          fakeArtistState
+          fakeArtistState,
+          majorityMatchState,
+          oneWordClueState
         })
       : null;
     if (activeSession && gameState) {
@@ -306,6 +346,8 @@ export function App() {
       spectrumMeterConfig,
       rankingAnswersConfig,
       fakeArtistConfig,
+      majorityMatchConfig,
+      oneWordClueConfig,
       activeSession
     } satisfies PersistedAppState);
   }, [
@@ -322,6 +364,8 @@ export function App() {
     spectrumMeterConfig,
     rankingAnswersConfig,
     fakeArtistConfig,
+    majorityMatchConfig,
+    oneWordClueConfig,
     geoState,
     numberState,
     werewolfState,
@@ -332,6 +376,8 @@ export function App() {
     spectrumMeterState,
     rankingAnswersState,
     fakeArtistState,
+    majorityMatchState,
+    oneWordClueState,
     activeSession
   ]);
 
@@ -350,6 +396,8 @@ export function App() {
     setSpectrumMeterState(null);
     setRankingAnswersState(null);
     setFakeArtistState(null);
+    setMajorityMatchState(null);
+    setOneWordClueState(null);
     setScreen("home");
     setSelectedGame(null);
     clearAppState();
@@ -369,6 +417,8 @@ export function App() {
     setSpectrumMeterState(null);
     setRankingAnswersState(null);
     setFakeArtistState(null);
+    setMajorityMatchState(null);
+    setOneWordClueState(null);
     if (gameId === "number-talk") {
       setNumberConfig((config) => withValidNumberTalkTopic(config));
     }
@@ -388,6 +438,8 @@ export function App() {
     const seed = createSeed();
     try {
       const nextSession = { sessionId: createSessionId(selectedGame), gameId: selectedGame };
+      setMajorityMatchState(null);
+      setOneWordClueState(null);
       if (selectedGame === "geo") {
         const state = await getGameDefinition("geo").createState({ players, config: { ...geoConfig, rounds: 1 }, seed });
         setGeoState(state);
@@ -522,6 +574,34 @@ export function App() {
         setSpectrumMeterState(null);
         setRankingAnswersState(null);
       }
+      if (selectedGame === "majority-match") {
+        const state = await getGameDefinition("majority-match").createState({ players, config: majorityMatchConfig, seed });
+        setMajorityMatchState(state);
+        setGeoState(null);
+        setNumberState(null);
+        setWerewolfState(null);
+        setDrinkingGamesState(null);
+        setWordInfiltratorState(null);
+        setInsiderGuessState(null);
+        setSpyLocationState(null);
+        setSpectrumMeterState(null);
+        setRankingAnswersState(null);
+        setFakeArtistState(null);
+      }
+      if (selectedGame === "one-word-clue") {
+        const state = await getGameDefinition("one-word-clue").createState({ players, config: oneWordClueConfig, seed });
+        setOneWordClueState(state);
+        setGeoState(null);
+        setNumberState(null);
+        setWerewolfState(null);
+        setDrinkingGamesState(null);
+        setWordInfiltratorState(null);
+        setInsiderGuessState(null);
+        setSpyLocationState(null);
+        setSpectrumMeterState(null);
+        setRankingAnswersState(null);
+        setFakeArtistState(null);
+      }
       setActiveSession(nextSession);
       setScreen("game");
     } finally {
@@ -555,6 +635,10 @@ export function App() {
           setRankingAnswersConfig={setRankingAnswersConfig}
           fakeArtistConfig={fakeArtistConfig}
           setFakeArtistConfig={setFakeArtistConfig}
+          majorityMatchConfig={majorityMatchConfig}
+          setMajorityMatchConfig={setMajorityMatchConfig}
+          oneWordClueConfig={oneWordClueConfig}
+          setOneWordClueConfig={setOneWordClueConfig}
           onBack={navigateHome}
           onStart={startGame}
           isStarting={isStarting}
@@ -603,12 +687,39 @@ export function App() {
           />
         </Suspense>
       )}
+      {screen === "game" && selectedGame && isQuickPartyGame(selectedGame) && (
+        <Suspense
+          fallback={
+            <section className="screen">
+              <Topbar title="読み込み中" />
+              <div className="content">
+                <div className="notice">ゲームを読み込んでいます。</div>
+              </div>
+            </section>
+          }
+        >
+          <QuickPartyGameScreens
+            selectedGame={selectedGame}
+            players={players}
+            onHome={navigateHome}
+            onRestart={startGame}
+            majorityMatchState={majorityMatchState}
+            setMajorityMatchState={setMajorityMatchState}
+            oneWordClueState={oneWordClueState}
+            setOneWordClueState={setOneWordClueState}
+          />
+        </Suspense>
+      )}
     </main>
   );
 }
 
 function isAddedTableGame(gameId: GameId): gameId is (typeof addedTableGameIds)[number] {
   return addedTableGameIds.includes(gameId as (typeof addedTableGameIds)[number]);
+}
+
+function isQuickPartyGame(gameId: GameId): gameId is (typeof quickPartyGameIds)[number] {
+  return quickPartyGameIds.includes(gameId as (typeof quickPartyGameIds)[number]);
 }
 
 function HomeScreen(props: { onPlayers: () => void; onSelect: (gameId: GameId) => void }) {
@@ -674,6 +785,10 @@ function SetupScreen(props: {
   setRankingAnswersConfig: (config: RankingAnswersConfig) => void;
   fakeArtistConfig: FakeArtistConfig;
   setFakeArtistConfig: (config: FakeArtistConfig) => void;
+  majorityMatchConfig: MajorityMatchConfig;
+  setMajorityMatchConfig: (config: MajorityMatchConfig) => void;
+  oneWordClueConfig: OneWordClueConfig;
+  setOneWordClueConfig: (config: OneWordClueConfig) => void;
   onBack: () => void;
   onStart: () => void;
   isStarting: boolean;
@@ -939,6 +1054,48 @@ function SetupScreen(props: {
                 options={["all", ...fakeArtistCategoryOptions]}
                 labels={fakeArtistCategoryLabels}
                 onChange={(value) => props.setFakeArtistConfig({ ...props.fakeArtistConfig, topicCategory: value as "all" | FakeArtistCategory })}
+              />
+            </SettingRow>
+          </>
+        )}
+        {props.game.id === "majority-match" && (
+          <>
+            <RuleDetails
+              title="ルール"
+              summary="全員が秘密に回答し、いちばん多かった答えと同じ人が得点します。"
+              details={[
+                "相談せず、ほかの人も書きそうな短い答えを入力します。",
+                "同じ回答が2人以上いれば、最多グループの全員が1点です。",
+                "同数最多が複数ある場合はどちらも得点し、5問の合計点を競います。"
+              ]}
+            />
+            <SettingRow title="お題" detail="カテゴリを選択">
+              <Segmented
+                value={props.majorityMatchConfig.promptCategory}
+                options={["all", ...majorityMatchCategoryOptions]}
+                labels={majorityMatchCategoryLabels}
+                onChange={(value) => props.setMajorityMatchConfig({ ...props.majorityMatchConfig, promptCategory: value as "all" | MajorityMatchCategory })}
+              />
+            </SettingRow>
+          </>
+        )}
+        {props.game.id === "one-word-clue" && (
+          <>
+            <RuleDetails
+              title="ルール"
+              summary="回答者以外が一つずつ秘密のヒントを出し、残ったヒントだけで答えを当てます。"
+              details={[
+                "回答者はお題を見ません。ほかの人は一人ずつお題を見て、短いヒントを入力します。",
+                "同じヒントは自動で消えます。似すぎたヒントや答えを含むヒントも、回答者へ渡す前に取り消します。",
+                "回答者は残ったヒントを見て1回だけ回答し、5問中の正解数を競います。"
+              ]}
+            />
+            <SettingRow title="お題" detail="カテゴリを選択">
+              <Segmented
+                value={props.oneWordClueConfig.wordCategory}
+                options={["all", ...oneWordClueCategoryOptions]}
+                labels={oneWordClueCategoryLabels}
+                onChange={(value) => props.setOneWordClueConfig({ ...props.oneWordClueConfig, wordCategory: value as "all" | OneWordClueCategory })}
               />
             </SettingRow>
           </>
@@ -2070,6 +2227,8 @@ function restorePersistedAppState(): RestoredAppState | null {
   let spectrumMeterState: SpectrumMeterState | null = null;
   let rankingAnswersState: RankingAnswersState | null = null;
   let fakeArtistState: FakeArtistState | null = null;
+  let majorityMatchState: MajorityMatchState | null = null;
+  let oneWordClueState: OneWordClueState | null = null;
 
   if (persisted.activeSession?.gameId === "geo") {
     geoState = sanitizeLoadedGeoState(loadGameSession<GeoState>(persisted.activeSession.sessionId, "geo")?.state ?? null);
@@ -2101,8 +2260,27 @@ function restorePersistedAppState(): RestoredAppState | null {
   if (persisted.activeSession?.gameId === "fake-artist") {
     fakeArtistState = sanitizeLoadedFakeArtistState(loadGameSession<FakeArtistState>(persisted.activeSession.sessionId, "fake-artist")?.state ?? null);
   }
+  if (persisted.activeSession?.gameId === "majority-match") {
+    majorityMatchState = sanitizeLoadedMajorityMatchState(loadGameSession<MajorityMatchState>(persisted.activeSession.sessionId, "majority-match")?.state ?? null);
+  }
+  if (persisted.activeSession?.gameId === "one-word-clue") {
+    oneWordClueState = sanitizeLoadedOneWordClueState(loadGameSession<OneWordClueState>(persisted.activeSession.sessionId, "one-word-clue")?.state ?? null);
+  }
 
-  const hasActiveState = Boolean(geoState ?? numberState ?? werewolfState ?? drinkingGamesState ?? wordInfiltratorState ?? insiderGuessState ?? spyLocationState ?? spectrumMeterState ?? rankingAnswersState ?? fakeArtistState);
+  const hasActiveState = Boolean(
+    geoState ??
+      numberState ??
+      werewolfState ??
+      drinkingGamesState ??
+      wordInfiltratorState ??
+      insiderGuessState ??
+      spyLocationState ??
+      spectrumMeterState ??
+      rankingAnswersState ??
+      fakeArtistState ??
+      majorityMatchState ??
+      oneWordClueState
+  );
   if (persisted.screen === "game" && !hasActiveState) {
     persisted.screen = "home";
     persisted.selectedGame = null;
@@ -2120,7 +2298,9 @@ function restorePersistedAppState(): RestoredAppState | null {
     spyLocationState,
     spectrumMeterState,
     rankingAnswersState,
-    fakeArtistState
+    fakeArtistState,
+    majorityMatchState,
+    oneWordClueState
   };
 }
 
@@ -2137,6 +2317,8 @@ function getActiveGameState(
     spectrumMeterState: SpectrumMeterState | null;
     rankingAnswersState: RankingAnswersState | null;
     fakeArtistState: FakeArtistState | null;
+    majorityMatchState: MajorityMatchState | null;
+    oneWordClueState: OneWordClueState | null;
   }
 ) {
   if (gameId === "geo") return states.geoState;
@@ -2148,7 +2330,9 @@ function getActiveGameState(
   if (gameId === "spy-location") return states.spyLocationState;
   if (gameId === "spectrum-meter") return states.spectrumMeterState;
   if (gameId === "ranking-answers") return states.rankingAnswersState;
-  return states.fakeArtistState;
+  if (gameId === "fake-artist") return states.fakeArtistState;
+  if (gameId === "majority-match") return states.majorityMatchState;
+  return states.oneWordClueState;
 }
 
 function sanitizePersistedAppState(state: PersistedAppState | null): PersistedAppState | null {
@@ -2271,4 +2455,18 @@ function sanitizeLoadedFakeArtistState(state: FakeArtistState | null): FakeArtis
   }
   next.drawOrder = next.drawOrder.filter((playerId) => playerId !== next.questionMasterPlayerId);
   return next;
+}
+
+function sanitizeLoadedMajorityMatchState(state: MajorityMatchState | null): MajorityMatchState | null {
+  return sanitizeReloadPhase(state, {
+    answer: "answerHandoff"
+  });
+}
+
+function sanitizeLoadedOneWordClueState(state: OneWordClueState | null): OneWordClueState | null {
+  return sanitizeReloadPhase(state, {
+    clueEntry: "clueHandoff",
+    clueReview: "reviewHandoff",
+    guess: "guesserHandoff"
+  });
 }

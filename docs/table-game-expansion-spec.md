@@ -387,6 +387,26 @@ type RankingAnswersState = {
    - キャンバス描画が必要なためUI検証コストが高い。
    - ただし完成するとスマホを回す体験として強い。
 
+## 第2弾: クイックゲーム
+
+### みんなと同じ回答
+
+- 4-8人、5問。
+- 全員が受け渡し画面から秘密回答を入力する。
+- NFKC、小文字化、空白、句読点を正規化して同じ回答を集計する。
+- 最大人数の回答グループが2人以上なら、そのグループ全員へ1点を与える。
+- 同数最多が複数ある場合は、該当するすべてのグループを得点対象にする。
+- お題文と表示名はParty Deck用に自作する。
+
+### ワンワード協力クイズ
+
+- 3-8人、5問。
+- 各ラウンドで回答者を1人選び、それ以外が一人ずつ答えを見て秘密ヒントを入力する。
+- 正規化後に同じヒントはすべて自動取消する。
+- ヒント確認担当は、似すぎたヒント、答えを含むヒント、不適切なヒントを手動取消できる。
+- 回答者は残ったヒントだけを見て1回回答する。
+- 答えデータ、表示文言、UIはParty Deck用に自作する。
+
 ## 法務/データ注意
 
 - 原典名はdocsの参照用途として保持する。UIに出す場合は商標利用可否を確認する。
@@ -408,3 +428,5 @@ type RankingAnswersState = {
 - A Fake Artist Goes to New York / Oink Games: `https://oinkgames.com/en/games/analog/a-fake-artist-goes-to-new-york/`
 - Top Ten rules PDF / Cocktail Games: `https://www.cocktailgames.com/wp-content/uploads/2021/01/Top_ten_18_regles_BD.pdf`
 - Top Ten / Asmodee Spain: `https://www.asmodee.es/product/top-ten/`
+- Just One / Repos Production: `https://www.rprod.com/en/press/just-one`
+- Herd Mentality / Big Potato Games: `https://bigpotato.com/products/herd-mentality`

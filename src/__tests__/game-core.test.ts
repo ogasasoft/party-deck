@@ -33,6 +33,8 @@ import {
   type WerewolfState
 } from "../games/werewolf";
 import { createRankingAnswersState, defaultRankingAnswersConfig } from "../games/rankingAnswers";
+import { createMajorityMatchState, defaultMajorityMatchConfig, scoreMajorityMatchRound, submitMajorityMatchAnswer } from "../games/majorityMatch";
+import { activeOneWordClues, createOneWordClueState, currentOneWordClueRound, defaultOneWordClueConfig, submitOneWordClue, submitOneWordGuess, toggleOneWordClueCancelled } from "../games/oneWordClue";
 import { hasSpyLocationAccusationConsensus, type SpyLocationState } from "../games/spyLocation";
 import {
   advanceSpectrumRound,
@@ -70,7 +72,7 @@ describe("Player profiles", () => {
 
 describe("Game registry", () => {
   it("resolves every registered game and keeps player ranges sane", () => {
-    expect(games).toHaveLength(10);
+    expect(games).toHaveLength(12);
     const ids = new Set<GameId>();
     games.forEach((game) => {
       ids.add(game.id);
@@ -355,6 +357,35 @@ describe("Reference-aligned table game rules", () => {
     } satisfies FakeArtistState;
 
     expect(judgeFakeArtist(tiedState).caught).toBe(false);
+  });
+});
+
+describe("Quick party games", () => {
+  it("scores everyone in a tied largest majority group", () => {
+    let state = createMajorityMatchState(players, defaultMajorityMatchConfig(), "majority-test");
+    state = submitMajorityMatchAnswer(state, { playerId: "p1", text: "カレー" });
+    state = submitMajorityMatchAnswer(state, { playerId: "p2", text: "カレー！" });
+    state = submitMajorityMatchAnswer(state, { playerId: "p3", text: "ラーメン" });
+    state = submitMajorityMatchAnswer(state, { playerId: "p4", text: "ラーメン" });
+
+    const result = scoreMajorityMatchRound(state.rounds[0]);
+    expect(result.largestGroupSize).toBe(2);
+    expect(Object.values(result.pointsByPlayerId)).toEqual([1, 1, 1, 1]);
+  });
+
+  it("cancels duplicate one-word clues and allows manual clue removal", () => {
+    let state = createOneWordClueState(players, defaultOneWordClueConfig(), "one-word-test");
+    const round = currentOneWordClueRound(state);
+    state = submitOneWordClue(state, round.cluePlayerIds[0], "黄色");
+    state = submitOneWordClue(state, round.cluePlayerIds[1], "黄色！");
+    state = submitOneWordClue(state, round.cluePlayerIds[2], "甘い");
+
+    expect(activeOneWordClues(state).map((clue) => clue.text)).toEqual(["甘い"]);
+    state = toggleOneWordClueCancelled(state, round.cluePlayerIds[2]);
+    expect(activeOneWordClues(state)).toHaveLength(0);
+
+    const guessed = submitOneWordGuess(state, round.target.text);
+    expect(currentOneWordClueRound(guessed).correct).toBe(true);
   });
 });
 

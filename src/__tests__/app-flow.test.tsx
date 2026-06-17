@@ -92,6 +92,33 @@ describe("App pass-and-play flows", () => {
     expect(screenText()).toContain("画面を見る");
     expect(screenText()).not.toContain("隠して渡す");
   });
+
+  it("starts Majority Match from its setup screen", async () => {
+    await renderApp();
+
+    await clickButton("みんなと同じ回答");
+    expect(screenText()).toContain("最多グループ");
+    await clickButton("はじめる");
+    await waitForText("第1問 回答");
+    expect(screenText()).toContain("第1問 回答");
+    expect(screenText()).toContain("画面を見る");
+  });
+
+  it("reloads a One Word clue entry back to the handoff screen", async () => {
+    await renderApp();
+
+    await clickButton("ワンワード協力クイズ");
+    await clickButton("はじめる");
+    await waitForText("第1問 ヒント");
+    await clickButton("画面を見る");
+    expect(document.querySelector('input[placeholder="一語ヒント"]')).toBeTruthy();
+
+    await remountApp();
+
+    expect(screenText()).toContain("第1問 ヒント");
+    expect(screenText()).toContain("画面を見る");
+    expect(document.querySelector('input[placeholder="一語ヒント"]')).toBeNull();
+  });
 });
 
 async function renderApp() {
@@ -152,4 +179,14 @@ function screenText() {
 
 function setupTopicText() {
   return document.querySelector(".topic-preview-card strong")?.textContent ?? "";
+}
+
+async function waitForText(text: string) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (screenText().includes(text)) return;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+  }
+  expect(screenText()).toContain(text);
 }

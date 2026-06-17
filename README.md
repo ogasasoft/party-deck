@@ -7,7 +7,7 @@ GitHub: https://github.com/ogasasoft/party-deck
 
 ## 現在の状態
 
-MVPとして、1台のスマホで初期3ゲームと追加テーブルゲーム6本を最後まで触れ、道具なし飲み会ゲーム辞典も確認できる状態です。
+MVPとして、1台のスマホで初期3ゲームと追加テーブルゲーム8本を最後まで触れ、道具なし飲み会ゲーム辞典も確認できる状態です。
 
 - 日本マップ当て
   - Mapillaryの東京周辺サンプル100件を `public/data/geo` に投入済み
@@ -58,6 +58,14 @@ MVPとして、1台のスマホで初期3ゲームと追加テーブルゲーム
   - 本物にはお題、偽物にはカテゴリだけを表示
   - スマホ描画、2周の線描画、偽物投票、偽物の最終推理、勝敗判定まで実装済み
   - お題データはParty Deck用の独自データ
+- みんなと同じ回答
+  - 4から8人、5問
+  - 全員が秘密回答し、最多回答と一致したプレイヤーが得点
+  - お題データはParty Deck用の独自データ
+- ワンワード協力クイズ
+  - 3から8人、5問
+  - 回答者以外が秘密ヒントを入力し、重複ヒントを自動・手動で取り消してから推理
+  - 答えデータはParty Deck用の独自データ
 - 共通機能
   - プレイヤーはニックネームと担当色のみ
   - localStorageでプレイヤーとゲーム進行を保存
@@ -130,6 +138,7 @@ src/
   App.tsx                         # 画面進行の中心。追加ゲーム画面はfeaturesへ分割済み
   features/
     AddedTableGames.tsx           # 追加テーブルゲーム6本の画面群。lazy load対象
+    QuickPartyGames.tsx           # 多数派回答、協力ヒントの画面群。lazy load対象
   components/
     CountdownTimer.tsx            # 共通タイマー
     PartyScreens.tsx              # Topbar、受け渡し、結果アクション、広告枠などの共通UI
@@ -155,6 +164,8 @@ src/
     spectrumMeter.ts              # 価値観メーター状態と判定
     rankingAnswers.ts             # ランキング回答状態と判定
     fakeArtist.ts                 # エセアーティスト状態と判定
+    majorityMatch.ts              # みんなと同じ回答の状態と採点
+    oneWordClue.ts                # ワンワード協力クイズの状態とヒント取消
   data/
     geoLocations.ts               # fallback地点
     numberTopics.ts               # ナンバートークお題
@@ -166,6 +177,8 @@ src/
     spectrumScales.ts             # 価値観メーターの尺度
     rankingAnswerPrompts.ts       # ランキング回答のお題
     fakeArtistTopics.ts           # エセアーティストのお題
+    majorityMatchPrompts.ts       # みんなと同じ回答のお題
+    oneWordClueWords.ts           # ワンワード協力クイズの答え
 public/data/geo/
   playable-index.json             # 出題地点index
   chunks/*.json                   # Mapillary地点chunk
