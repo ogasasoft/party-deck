@@ -1505,6 +1505,248 @@ button.candidate-chip.active {
   color: var(--ink);
 }
 
+.utility-section,
+.bill-split-content,
+.bill-list,
+.bill-participant-list,
+.bill-share-list,
+.settlement-list,
+.bill-result-section,
+.copy-block {
+  display: grid;
+  gap: 12px;
+}
+
+.utility-section {
+  margin-top: 4px;
+}
+
+.utility-card {
+  min-height: 96px;
+  border-color: rgba(15, 139, 141, 0.42);
+  background: #f2fbfa;
+}
+
+.section-heading,
+.bill-card-heading,
+.bill-card-actions,
+.bill-participant-toggle,
+.money-input-wrap,
+.bill-share-row,
+.settlement-row {
+  display: flex;
+  align-items: center;
+}
+
+.section-heading,
+.bill-card-heading,
+.settlement-row {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-heading strong,
+.section-heading span,
+.bill-card-heading strong,
+.bill-card-heading span {
+  display: block;
+}
+
+.bill-summary-card,
+.bill-card,
+.bill-field,
+.bill-participants-section,
+.bill-participant,
+.bill-share-row,
+.settlement-row,
+.bill-result-section {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.bill-summary-card {
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f4fbfa, #fff8ee);
+}
+
+.bill-summary-card strong {
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+.bill-summary-card small,
+.bill-card-heading span,
+.bill-field small,
+.bill-share-row small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.bill-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.bill-card-heading b {
+  font-size: 18px;
+  white-space: nowrap;
+}
+
+.bill-card-actions {
+  gap: 8px;
+}
+
+.bill-card-actions .secondary {
+  flex: 1;
+}
+
+.danger-text {
+  color: var(--red, #b63b31) !important;
+}
+
+.bill-finish-button {
+  justify-self: center;
+  margin-top: 6px;
+}
+
+.bill-field {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.bill-field > input,
+.bill-field select,
+.bill-participant select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  padding: 0 11px;
+  font: inherit;
+  font-weight: 800;
+}
+
+.money-input-wrap {
+  gap: 8px;
+}
+
+.money-input-wrap .money-input {
+  min-width: 0;
+  flex: 1;
+  min-height: 54px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  text-align: right;
+  font-size: 26px;
+  font-weight: 950;
+}
+
+.bill-participants-section,
+.bill-result-section {
+  padding: 12px;
+}
+
+.bill-participant {
+  display: grid;
+  gap: 10px;
+  padding: 11px;
+}
+
+.bill-participant.excluded {
+  background: #f4f0ea;
+  color: var(--muted);
+}
+
+.bill-participant-toggle {
+  gap: 9px;
+  min-height: 30px;
+}
+
+.bill-participant-toggle input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--teal);
+}
+
+.bill-weight-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.bill-weight-options button {
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f3ede5;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.bill-weight-options button.active {
+  border-color: var(--teal);
+  background: #eefafa;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--teal);
+}
+
+.bill-weight-options small {
+  font-size: 11px;
+}
+
+.bill-share-row {
+  min-height: 64px;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.bill-share-row > div,
+.bill-share-row > strong {
+  flex: 1;
+}
+
+.bill-share-row strong,
+.bill-share-row small {
+  display: block;
+}
+
+.bill-share-row b,
+.settlement-row b {
+  white-space: nowrap;
+}
+
+.bill-result-section h2 {
+  font-size: 17px;
+}
+
+.settlement-row {
+  min-height: 54px;
+  padding: 10px 12px;
+}
+
+.copy-block textarea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  font: inherit;
+  font-size: 13px;
+}
+
 @media (min-width: 720px) {
   .app-shell {
     min-height: calc(100svh - 32px);

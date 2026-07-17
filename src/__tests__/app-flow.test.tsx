@@ -17,6 +17,7 @@ beforeEach(() => {
   sessionStorage.clear();
   vi.unstubAllGlobals();
   vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 500 })));
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn().mockResolvedValue(undefined) } });
 });
 
 afterEach(async () => {
@@ -119,6 +120,115 @@ describe("App pass-and-play flows", () => {
     expect(screenText()).toContain("画面を見る");
     expect(document.querySelector('input[placeholder="一語ヒント"]')).toBeNull();
   });
+
+  it("calculates and restores a shop bill from the utility section", async () => {
+    await renderApp();
+
+    await clickButton("今日の割り勘");
+    await waitForText("まず1軒目の会計を追加してください");
+    expect(screenText()).toContain("まず1軒目の会計を追加してください");
+    await clickButton("会計を追加");
+    await fillInput("0", "12540");
+    await clickButton("このお店を計算");
+
+    expect(screenText()).toContain("12,540円");
+    expect(screenText().match(/3,135円/g)).toHaveLength(4);
+    expect(localStorage.getItem("party:v1:bill-split-day")).toContain("12540");
+
+    await remountApp();
+    expect(screenText()).toContain("1軒目");
+    expect(screenText()).toContain("12,540円");
+  });
+
+  it("uses shop-specific weights across two bills and copies the final day result", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    await renderApp();
+    await openBillEditor();
+
+    await fillInput("未入力なら1軒目", "居酒屋");
+    await fillInput("0", "10000");
+    await clickParticipantWeight("ユイ", "少なめ");
+    await selectParticipantReason("ユイ", "non-drinker");
+    await selectPayer("p1");
+    await clickButton("このお店を計算");
+    expect(screenText()).toContain("1,429円");
+    expect(screenText()).toContain("飲んでいない");
+
+    await clickBackButton();
+    await clickButton("会計を追加");
+    await fillInput("0", "9000");
+    await selectPayer("p2");
+    await clickButton("このお店を計算");
+    await clickBackButton();
+    await clickButton("一日の合計を見る");
+
+    expect(screenText()).toContain("19,000円");
+    expect(screenText()).toContain("負担額合計");
+    expect(screenText()).toContain("最終精算");
+    expect(screenText()).toContain("ユイ → ミナト");
+    await clickButton("一日の合計をコピー");
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(String(writeText.mock.calls[0][0])).toContain("居酒屋：10,000円");
+    expect(String(writeText.mock.calls[0][0])).toContain("2軒目：9,000円");
+  });
+
+  it("clears the payer when that participant is excluded and shows the clipboard fallback", async () => {
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) } });
+    await renderApp();
+    await openBillEditor();
+
+    await fillInput("0", "10000");
+    await selectPayer("p1");
+    await setParticipantIncluded("アオイ", false);
+    expect((document.querySelector(".bill-field select") as HTMLSelectElement | null)?.value).toBe("");
+    await clickButton("このお店を計算");
+
+    expect(screenText()).not.toContain("立替 アオイ");
+    expect(document.querySelectorAll(".bill-share-row")).toHaveLength(3);
+    await clickButton("このお店の結果をコピー");
+    expect(document.querySelector('textarea[aria-label="コピー用テキスト"]')).toBeTruthy();
+  });
+
+  it("ends the current day and removes its saved bills", async () => {
+    vi.stubGlobal("confirm", vi.fn(() => true));
+    await renderApp();
+    await openBillEditor();
+    await fillInput("0", "4000");
+    await clickButton("このお店を計算");
+    await clickBackButton();
+    expect(localStorage.getItem("party:v1:bill-split-day")).toContain("4000");
+
+    await clickButton("今日の割り勘を終了");
+    expect(screenText()).toContain("ゲームを選ぶ");
+    expect(localStorage.getItem("party:v1:bill-split-day")).toBeNull();
+  });
+
+  it("edits and deletes one shop without changing another shop result", async () => {
+    vi.stubGlobal("confirm", vi.fn(() => true));
+    await renderApp();
+    await openBillEditor();
+    await fillInput("0", "10000");
+    await clickButton("このお店を計算");
+    await clickBackButton();
+    const firstBefore = savedBillSplitDay().bills[0].shares;
+
+    await clickButton("会計を追加");
+    await fillInput("0", "4000");
+    await clickButton("このお店を計算");
+    await clickBackButton();
+    await clickBillCardButton("2軒目", "編集");
+    await fillInput("0", "8000");
+    await clickButton("このお店を計算");
+    await clickBackButton();
+
+    expect(savedBillSplitDay().bills[0].shares).toEqual(firstBefore);
+    expect(savedBillSplitDay().bills[1].totalYen).toBe(8000);
+    await clickBillCardButton("2軒目", "削除");
+    expect(savedBillSplitDay().bills).toHaveLength(1);
+    expect(screenText()).toContain("10,000円");
+    expect(screenText()).not.toContain("8,000円");
+  });
 });
 
 async function renderApp() {
@@ -147,6 +257,76 @@ async function clickButton(text: string) {
   expect(matches, `button containing ${text}`).toHaveLength(1);
   await act(async () => {
     matches[0].click();
+  });
+}
+
+async function clickBackButton() {
+  const button = document.querySelector<HTMLButtonElement>('button[aria-label="戻る"]');
+  expect(button, "back button").toBeTruthy();
+  await act(async () => {
+    button?.click();
+  });
+}
+
+async function openBillEditor() {
+  await clickButton("今日の割り勘");
+  await waitForText("まず1軒目の会計を追加してください");
+  await clickButton("会計を追加");
+}
+
+async function clickParticipantWeight(playerName: string, weightLabel: string) {
+  const cards = Array.from(document.querySelectorAll<HTMLElement>(".bill-participant"));
+  const card = cards.find((item) => item.textContent?.includes(playerName));
+  const matches = Array.from(card?.querySelectorAll<HTMLButtonElement>("button") ?? []).filter((button) => button.textContent?.includes(weightLabel));
+  expect(matches, `${playerName} ${weightLabel}`).toHaveLength(1);
+  await act(async () => {
+    matches[0].click();
+  });
+}
+
+async function selectParticipantReason(playerName: string, value: string) {
+  const cards = Array.from(document.querySelectorAll<HTMLElement>(".bill-participant"));
+  const select = cards.find((item) => item.textContent?.includes(playerName))?.querySelector("select");
+  expect(select, `${playerName} reason`).toBeTruthy();
+  await changeSelect(select as HTMLSelectElement, value);
+}
+
+async function selectPayer(value: string) {
+  const select = document.querySelector<HTMLSelectElement>(".bill-field select");
+  expect(select, "payer select").toBeTruthy();
+  await changeSelect(select as HTMLSelectElement, value);
+}
+
+async function setParticipantIncluded(playerName: string, checked: boolean) {
+  const checkboxes = Array.from(document.querySelectorAll<HTMLInputElement>('.bill-participant input[type="checkbox"]'));
+  const checkbox = checkboxes.find((item) => item.parentElement?.textContent?.includes(playerName));
+  expect(checkbox, `${playerName} checkbox`).toBeTruthy();
+  await act(async () => {
+    if (checkbox?.checked !== checked) checkbox?.click();
+  });
+}
+
+async function clickBillCardButton(label: string, buttonText: string) {
+  const cards = Array.from(document.querySelectorAll<HTMLElement>(".bill-card"));
+  const card = cards.find((item) => item.textContent?.includes(label));
+  const matches = Array.from(card?.querySelectorAll<HTMLButtonElement>("button") ?? []).filter((button) => button.textContent?.includes(buttonText));
+  expect(matches, `${label} ${buttonText}`).toHaveLength(1);
+  await act(async () => {
+    matches[0].click();
+  });
+}
+
+function savedBillSplitDay() {
+  const raw = localStorage.getItem("party:v1:bill-split-day");
+  expect(raw).toBeTruthy();
+  return JSON.parse(raw as string) as { bills: Array<{ totalYen: number; shares: unknown[] }> };
+}
+
+async function changeSelect(select: HTMLSelectElement, value: string) {
+  await act(async () => {
+    const valueSetter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
+    valueSetter?.call(select, value);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
   });
 }
 

@@ -48,6 +48,17 @@ import {
 } from "../games/spectrumMeter";
 import { judgeWordInfiltrator, type WordInfiltratorState } from "../games/wordInfiltrator";
 import { createFakeArtistState, judgeFakeArtist, type FakeArtistState } from "../games/fakeArtist";
+import {
+  canCalculateSettlement,
+  createSettlementTransfers,
+  formatBillCopy,
+  splitBill,
+  summarizeBillSplitDay,
+  type BillSplitBill,
+  type BillSplitDay,
+  type BillSplitParticipant
+} from "../tools/billSplit";
+import { BILL_SPLIT_MAX_AGE_MS, clearBillSplitDay, loadBillSplitDay, saveBillSplitDay } from "../tools/billSplitStorage";
 
 const players = DEFAULT_PLAYERS.slice(0, 4);
 const fivePlayers: Player[] = [...players, { id: "p5", nickname: "ソラ", color: "#e76f51" }];
@@ -122,6 +133,139 @@ describe("Storage", () => {
     expect(loadGameSession("s1", "werewolf")).toBeNull();
     clearGameSession({ sessionId: "s1", gameId: "number-talk" });
     expect(loadGameSession("s1", "number-talk")).toBeNull();
+  });
+});
+
+describe("Bill split", () => {
+  const splitPlayers: BillSplitParticipant[] = players.slice(0, 3).map((player) => ({ ...player, weight: 1 }));
+
+  it("splits equal and weighted bills to the exact yen", () => {
+    const equal = splitBill(10_000, splitPlayers, sequenceRandom([0.9, 0.1, 0.5]));
+    expect(equal.map((share) => share.amountYen)).toEqual([3333, 3334, 3333]);
+    expect(equal.reduce((sum, share) => sum + share.amountYen, 0)).toBe(10_000);
+    expect(equal.filter((share) => share.receivedRemainder).map((share) => share.id)).toEqual(["p2"]);
+
+    const weighted = splitBill(10_000, [
+      { ...players[0], weight: 1 },
+      { ...players[1], weight: 1 },
+      { ...players[2], weight: 0.5, reducedReason: "non-drinker" }
+    ]);
+    expect(weighted.map((share) => share.amountYen)).toEqual([4000, 4000, 2000]);
+  });
+
+  it("assigns every remainder yen once and rounds weighted shares by the largest remainder", () => {
+    const equal = splitBill(10_001, splitPlayers, sequenceRandom([0.8, 0.2, 0.5]));
+    expect(equal.map((share) => share.amountYen)).toEqual([3333, 3334, 3334]);
+    expect(equal.filter((share) => share.receivedRemainder)).toHaveLength(2);
+
+    const weighted = splitBill(3_001, [
+      { ...players[0], weight: 1.5 },
+      { ...players[1], weight: 1 },
+      { ...players[2], weight: 0.5 }
+    ], sequenceRandom([0.9, 0.1, 0.5]));
+    expect(weighted.map((share) => share.amountYen)).toEqual([1501, 1000, 500]);
+  });
+
+  it("preserves split invariants across totals, roster sizes, and weights", () => {
+    const totals = [1, 2, 3, 10, 999, 10_000, 10_001, 999_999];
+    const weights: BillSplitParticipant["weight"][] = [0.5, 1, 1.5];
+    for (const totalYen of totals) {
+      for (let count = 2; count <= 8; count += 1) {
+        const roster = Array.from({ length: count }, (_item, index) => ({
+          id: `i${index}`,
+          nickname: `P${index}`,
+          color: "#000",
+          weight: weights[index % weights.length]
+        }));
+        const shares = splitBill(totalYen, roster, sequenceRandom(Array.from({ length: count }, (_item, index) => index / count)));
+        expect(shares.reduce((sum, share) => sum + share.amountYen, 0)).toBe(totalYen);
+        expect(shares.every((share) => Number.isSafeInteger(share.amountYen) && share.amountYen >= 0)).toBe(true);
+        const totalWeight = roster.reduce((sum, participant) => sum + participant.weight, 0);
+        shares.forEach((share) => {
+          const exact = totalYen * share.weight / totalWeight;
+          expect(Math.abs(share.amountYen - exact)).toBeLessThan(1);
+        });
+      }
+    }
+  });
+
+  it("rejects invalid totals, rosters, weights, and unsafe multiplication", () => {
+    expect(() => splitBill(0, splitPlayers)).toThrow("1円以上");
+    expect(() => splitBill(100, splitPlayers.slice(0, 1))).toThrow("2人以上");
+    expect(() => splitBill(100, [splitPlayers[0], splitPlayers[0]])).toThrow("重複");
+    expect(() => splitBill(100, [{ ...splitPlayers[0], weight: 2 as BillSplitParticipant["weight"] }, splitPlayers[1]])).toThrow("無効");
+    expect(() => splitBill(Number.MAX_SAFE_INTEGER, [{ ...splitPlayers[0], weight: 1.5 }, splitPlayers[1]])).toThrow("大きすぎ");
+  });
+
+  it("aggregates shops and creates a balanced final settlement", () => {
+    const first = createBill("b1", "1軒目", 12_000, "p1", [4000, 4000, 2000, 2000]);
+    const second = createBill("b2", "2軒目", 8_000, "p2", [2667, 2667, 0, 2666]);
+    const day: BillSplitDay = { version: 1, id: "day", startedAt: "2026-07-17T00:00:00.000Z", updatedAt: "2026-07-17T00:00:00.000Z", bills: [first, second] };
+    const rows = summarizeBillSplitDay(day);
+
+    expect(rows.map((row) => [row.player.id, row.shareYen, row.paidYen])).toEqual([
+      ["p1", 6667, 12000],
+      ["p2", 6667, 8000],
+      ["p3", 2000, 0],
+      ["p4", 4666, 0]
+    ]);
+    expect(canCalculateSettlement(day)).toBe(true);
+    const transfers = createSettlementTransfers(rows);
+    expect(transfers.reduce((sum, transfer) => sum + transfer.amountYen, 0)).toBe(6666);
+    expect(transfers).toEqual([
+      { fromPlayerId: "p4", toPlayerId: "p1", amountYen: 4666 },
+      { fromPlayerId: "p3", toPlayerId: "p1", amountYen: 667 },
+      { fromPlayerId: "p3", toPlayerId: "p2", amountYen: 1333 }
+    ]);
+    expect(formatBillCopy(first)).toContain("合計：12,000円");
+  });
+
+  it("gates incomplete settlement and leaves every balance at zero after transfers", () => {
+    const first = createBill("b1", "1軒目", 12_000, "p1", [4000, 4000, 2000, 2000]);
+    const missingPayer = { ...createBill("b2", "2軒目", 8_000, "p2", [2667, 2667, 0, 2666]), payerId: null };
+    const incomplete: BillSplitDay = { version: 1, id: "day", startedAt: "2026-07-17T00:00:00.000Z", updatedAt: "2026-07-17T00:00:00.000Z", bills: [first, missingPayer] };
+    expect(canCalculateSettlement(incomplete)).toBe(false);
+
+    const complete = { ...incomplete, bills: [first, { ...missingPayer, payerId: "p2" }] };
+    const rows = summarizeBillSplitDay(complete);
+    const remaining = new Map(rows.map((row) => [row.player.id, row.netYen]));
+    for (const transfer of createSettlementTransfers(rows)) {
+      remaining.set(transfer.fromPlayerId, (remaining.get(transfer.fromPlayerId) ?? 0) + transfer.amountYen);
+      remaining.set(transfer.toPlayerId, (remaining.get(transfer.toPlayerId) ?? 0) - transfer.amountYen);
+    }
+    expect([...remaining.values()]).toEqual([0, 0, 0, 0]);
+
+    const settledRows = rows.map((row) => ({ ...row, paidYen: row.shareYen, netYen: 0 }));
+    expect(createSettlementTransfers(settledRows)).toEqual([]);
+  });
+
+  it("restores a recent day and clears expired data", () => {
+    const now = Date.parse("2026-07-17T12:00:00.000Z");
+    const day: BillSplitDay = { version: 1, id: "day", startedAt: new Date(now).toISOString(), updatedAt: new Date(now).toISOString(), bills: [] };
+    saveBillSplitDay(day);
+    expect(loadBillSplitDay(now)?.id).toBe("day");
+    expect(loadBillSplitDay(now + BILL_SPLIT_MAX_AGE_MS + 1)).toBeNull();
+    expect(localStorage.getItem("party:v1:bill-split-day")).toBeNull();
+    saveBillSplitDay(day);
+    clearBillSplitDay();
+    expect(loadBillSplitDay(now)).toBeNull();
+  });
+
+  it("clears corrupt, unsupported, and structurally invalid saved days", () => {
+    localStorage.setItem("party:v1:bill-split-day", "{broken");
+    expect(loadBillSplitDay()).toBeNull();
+
+    localStorage.setItem("party:v1:bill-split-day", JSON.stringify({ version: 2, id: "old", startedAt: "x", updatedAt: new Date().toISOString(), bills: [] }));
+    expect(loadBillSplitDay()).toBeNull();
+
+    localStorage.setItem("party:v1:bill-split-day", JSON.stringify({
+      version: 1,
+      id: "bad",
+      startedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      bills: [{ ...createBill("b1", "1軒目", 100, "p1", [25, 25, 25, 25]), shares: [] }]
+    }));
+    expect(loadBillSplitDay()).toBeNull();
   });
 });
 
@@ -409,3 +553,22 @@ describe("Ad and reload safety", () => {
     expect(sanitizeReloadPhase(null, {})).toBeNull();
   });
 });
+
+function sequenceRandom(values: number[]) {
+  let index = 0;
+  return () => values[index++] ?? 0.5;
+}
+
+function createBill(id: string, label: string, totalYen: number, payerId: string, amounts: number[]): BillSplitBill {
+  const participants: BillSplitParticipant[] = players.map((player) => ({ ...player, weight: 1 }));
+  return {
+    id,
+    label,
+    totalYen,
+    payerId,
+    participants,
+    shares: participants.map((participant, index) => ({ ...participant, amountYen: amounts[index], receivedRemainder: false })),
+    createdAt: "2026-07-17T00:00:00.000Z",
+    updatedAt: "2026-07-17T00:00:00.000Z"
+  };
+}

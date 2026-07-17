@@ -191,6 +191,7 @@ docs/
   device-qa-checklist.md          # iPhone/Android/低速回線/AdSense実機QA手順
   system-design-units.md          # unit設計
   implementation-spec.md          # 実装仕様
+  bill-split-spec.md              # 店舗ごとの割合と一日集計を行う割り勘ツール仕様
   drinking-games-database.md      # 飲み会ゲーム辞典の更新ルール
   table-game-expansion-spec.md    # パスアンドプレイ向け追加テーブルゲーム仕様
   table-game-expansion-plan.md    # 追加テーブルゲームの実装計画

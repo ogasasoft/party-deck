@@ -120,10 +120,11 @@ import {
   type OneWordClueState
 } from "./games/oneWordClue";
 
-type Screen = "home" | "players" | "setup" | "game";
+type Screen = "home" | "players" | "setup" | "game" | "bill-split";
 
 const AddedTableGameScreens = lazy(() => import("./features/AddedTableGames"));
 const QuickPartyGameScreens = lazy(() => import("./features/QuickPartyGames"));
+const BillSplit = lazy(() => import("./features/BillSplit"));
 const addedTableGameIds = ["word-infiltrator", "insider-guess", "spy-location", "spectrum-meter", "ranking-answers", "fake-artist"] as const satisfies readonly GameId[];
 const quickPartyGameIds = ["majority-match", "one-word-clue"] as const satisfies readonly GameId[];
 
@@ -611,8 +612,20 @@ export function App() {
 
   return (
     <main className="app-shell">
-      {screen === "home" && <HomeScreen onPlayers={() => setScreen("players")} onSelect={openSetup} />}
+      {screen === "home" && <HomeScreen onPlayers={() => setScreen("players")} onSelect={openSetup} onBillSplit={() => setScreen("bill-split")} />}
       {screen === "players" && <PlayerSetup players={players} setPlayers={setPlayers} onBack={navigateHome} />}
+      {screen === "bill-split" && (
+        <Suspense
+          fallback={
+            <section className="screen">
+              <Topbar title="読み込み中" />
+              <div className="content"><div className="notice">割り勘ツールを読み込んでいます。</div></div>
+            </section>
+          }
+        >
+          <BillSplit players={players} onHome={navigateHome} />
+        </Suspense>
+      )}
       {screen === "setup" && selectedSummary && (
         <SetupScreen
           game={selectedSummary}
@@ -722,7 +735,7 @@ function isQuickPartyGame(gameId: GameId): gameId is (typeof quickPartyGameIds)[
   return quickPartyGameIds.includes(gameId as (typeof quickPartyGameIds)[number]);
 }
 
-function HomeScreen(props: { onPlayers: () => void; onSelect: (gameId: GameId) => void }) {
+function HomeScreen(props: { onPlayers: () => void; onSelect: (gameId: GameId) => void; onBillSplit: () => void }) {
   return (
     <section className="screen">
       <Topbar
@@ -754,6 +767,18 @@ function HomeScreen(props: { onPlayers: () => void; onSelect: (gameId: GameId) =
             </button>
           ))}
         </div>
+        <section className="utility-section" aria-labelledby="utility-heading">
+          <div className="section-heading">
+            <div>
+              <span className="field-label">便利ツール</span>
+              <h2 id="utility-heading">飲み会の最後まで</h2>
+            </div>
+          </div>
+          <button className="game-card utility-card" type="button" onClick={props.onBillSplit}>
+            <span className="game-card-title-row"><span className="game-title">今日の割り勘</span><span className="pill">2-8人</span></span>
+            <span className="game-description">お店ごとに割合を決めて、一日の合計をコピーできます。</span>
+          </button>
+        </section>
         <AdSlot context="home" />
         <nav className="legal-links" aria-label="サイト情報">
           <a href="/privacy.html">プライバシー</a>
