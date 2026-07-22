@@ -60,8 +60,7 @@ for (const assetPath of assetPaths.filter((path) => path.endsWith(".js"))) {
   bundleTexts.push(asset.text);
 }
 const bundle = bundleTexts.join("\n");
-check("bundle contains current geo title", bundle.includes("日本マップ当て"));
-check("bundle does not contain old geo title", !bundle.includes("日本マップGuessr"));
+check("bundle excludes archived geo game", !bundle.includes("日本マップ当て") && !bundle.includes("Mapillary"));
 check("bundle links privacy page", bundle.includes("privacy.html"));
 check("bundle links terms page", bundle.includes("terms.html"));
 if (requireAds) {
@@ -75,24 +74,13 @@ check("privacy content", privacy.text.includes("プライバシーポリシー")
 const terms = await fetchText("/terms.html");
 check("terms content", terms.text.includes("利用規約") && terms.text.includes("飲酒の強要"));
 
-const geoIndex = await fetchText("/data/geo/playable-index.json");
-let firstChunkId: string | undefined;
 try {
-  const index = JSON.parse(geoIndex.text) as Array<{ chunkId?: string }>;
-  firstChunkId = index.find((item) => item.chunkId)?.chunkId;
-  check("geo index has locations", Array.isArray(index) && index.length > 0, `${Array.isArray(index) ? index.length : 0} locations`);
+  const archivedGeoData = await fetch(urlFor("/data/geo/playable-index.json"), { redirect: "follow" });
+  const contentType = archivedGeoData.headers.get("content-type") ?? "";
+  const geoDataIsUnavailable = archivedGeoData.status === 404 || !contentType.includes("application/json");
+  check("archived geo data is not public", geoDataIsUnavailable, `${archivedGeoData.status} ${archivedGeoData.statusText} ${contentType}`);
 } catch (error) {
-  check("geo index parses", false, error instanceof Error ? error.message : String(error));
-}
-
-if (firstChunkId) {
-  const chunk = await fetchText(`/data/geo/chunks/${firstChunkId}.json`);
-  try {
-    const locations = JSON.parse(chunk.text) as unknown[];
-    check("geo chunk parses", Array.isArray(locations) && locations.length > 0, `${locations.length} locations`);
-  } catch (error) {
-    check("geo chunk parses", false, error instanceof Error ? error.message : String(error));
-  }
+  check("archived geo data is not public", false, error instanceof Error ? error.message : String(error));
 }
 
 const failed = checks.filter((item) => !item.ok);

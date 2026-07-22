@@ -1,5 +1,3 @@
-import { createGeoState, defaultGeoConfig, type GeoConfig, type GeoState } from "../games/geoGuessr";
-import { loadPlayableGeoLocations } from "../games/geoLocationRepository";
 import { createDrinkingGamesState, defaultDrinkingGamesConfig, type DrinkingGamesConfig, type DrinkingGamesState } from "../games/drinkingGames";
 import { createFakeArtistState, defaultFakeArtistConfig, type FakeArtistConfig, type FakeArtistState } from "../games/fakeArtist";
 import { createInsiderGuessState, defaultInsiderGuessConfig, type InsiderGuessConfig, type InsiderGuessState } from "../games/insiderGuess";
@@ -14,7 +12,6 @@ import { createWordInfiltratorState, defaultWordInfiltratorConfig, type WordInfi
 import type { GameDefinition, GameId, GameSummary } from "./types";
 
 export type GameDefinitionMap = {
-  geo: GameDefinition<GeoConfig, GeoState>;
   "number-talk": GameDefinition<NumberTalkConfig, NumberTalkState>;
   werewolf: GameDefinition<WerewolfConfig, WerewolfState>;
   "drinking-games": GameDefinition<DrinkingGamesConfig, DrinkingGamesState>;
@@ -29,20 +26,6 @@ export type GameDefinitionMap = {
 };
 
 export const gameDefinitions: GameDefinitionMap = {
-  geo: {
-    id: "geo",
-    title: "日本マップ当て",
-    description: "Mapillaryの日本画像を見て、全員が同じ地点を順番に当てます。",
-    minPlayers: 2,
-    maxPlayers: 8,
-    availability: "paused",
-    availabilityLabel: "一時停止中",
-    defaultConfig: defaultGeoConfig,
-    createState: async ({ players, config, seed }) => {
-      const locations = await loadPlayableGeoLocations();
-      return createGeoState(players, config, seed, locations);
-    }
-  },
   "number-talk": {
     id: "number-talk",
     title: "ナンバートーク",
@@ -155,8 +138,7 @@ const gameOrder: GameId[] = [
   "ranking-answers",
   "fake-artist",
   "majority-match",
-  "one-word-clue",
-  "geo"
+  "one-word-clue"
 ];
 
 export const games: GameSummary[] = gameOrder.map((gameId) => {
@@ -176,6 +158,6 @@ export function getGameDefinition<TGameId extends GameId>(gameId: TGameId): Game
   return gameDefinitions[gameId];
 }
 
-export function isGameAvailable(gameId: GameId) {
-  return getGameDefinition(gameId).availability !== "paused";
+export function isGameAvailable(gameId: unknown): gameId is GameId {
+  return typeof gameId === "string" && Object.prototype.hasOwnProperty.call(gameDefinitions, gameId) && gameDefinitions[gameId as GameId].availability !== "paused";
 }

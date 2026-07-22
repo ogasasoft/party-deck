@@ -1,5 +1,4 @@
 export type GameId =
-  | "geo"
   | "number-talk"
   | "werewolf"
   | "drinking-games"

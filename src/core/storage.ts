@@ -22,7 +22,7 @@ export function loadPlayers(): Player[] {
 }
 
 export function savePlayers(players: Player[]) {
-  localStorage.setItem(PLAYER_KEY, JSON.stringify(players.slice(0, 8)));
+  setLocalStorageItem(PLAYER_KEY, JSON.stringify(players.slice(0, 8)));
 }
 
 export function loadAppState<T>(): T | null {
@@ -35,11 +35,11 @@ export function loadAppState<T>(): T | null {
 }
 
 export function saveAppState(data: unknown) {
-  localStorage.setItem(APP_STATE_KEY, JSON.stringify(data));
+  setLocalStorageItem(APP_STATE_KEY, JSON.stringify(data));
 }
 
 export function clearAppState() {
-  localStorage.removeItem(APP_STATE_KEY);
+  removeLocalStorageItem(APP_STATE_KEY);
 }
 
 export function createSessionId(gameId: GameId) {
@@ -60,10 +60,26 @@ export function loadGameSession<TState>(sessionId: string, gameId: GameId): Game
 }
 
 export function saveGameSession<TState>(session: GameSessionEnvelope<TState>) {
-  localStorage.setItem(gameSessionKey(session.sessionId, session.gameId), JSON.stringify(session));
+  setLocalStorageItem(gameSessionKey(session.sessionId, session.gameId), JSON.stringify(session));
 }
 
 export function clearGameSession(session: ActiveSessionRef | null) {
   if (!session) return;
-  localStorage.removeItem(gameSessionKey(session.sessionId, session.gameId));
+  removeLocalStorageItem(gameSessionKey(session.sessionId, session.gameId));
+}
+
+function setLocalStorageItem(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // The app remains usable when storage is unavailable or full.
+  }
+}
+
+function removeLocalStorageItem(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Clearing persisted state is best-effort when storage is unavailable.
+  }
 }

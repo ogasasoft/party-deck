@@ -32,6 +32,23 @@ afterEach(async () => {
 });
 
 describe("App pass-and-play flows", () => {
+  it("returns legacy Geo sessions to the home screen", async () => {
+    localStorage.setItem(
+      "party:v1:app-state",
+      JSON.stringify({
+        screen: "game",
+        selectedGame: "geo",
+        players: [],
+        activeSession: { sessionId: "geo:legacy", gameId: "geo" }
+      })
+    );
+
+    await renderApp();
+
+    expect(screenText()).toContain("ゲームを選ぶ");
+    expect(screenText()).not.toContain("日本マップ当て");
+  });
+
   it("opens player setup and adds a guest without collecting extra profile data", async () => {
     await renderApp();
 
@@ -229,6 +246,145 @@ describe("App pass-and-play flows", () => {
     expect(screenText()).toContain("10,000円");
     expect(screenText()).not.toContain("8,000円");
   });
+
+  it("uses roulette, coin, and three dice from the random utility", async () => {
+    stubReducedMotion();
+    await renderApp();
+
+    await clickButton("ランダムツール");
+    await waitForText("候補を2件以上入力");
+    const wheelStatus = document.querySelector<HTMLElement>(".random-result-status[role='status']");
+    const wheelTextarea = document.querySelector<HTMLTextAreaElement>(".random-items-field textarea");
+    expect(wheelStatus).toBeTruthy();
+    expect(wheelStatus?.textContent).toBe("");
+    expect(Number(wheelTextarea?.getAttribute("maxlength"))).toBeGreaterThan(0);
+    expect(buttonByText("ルーレット")?.getAttribute("aria-pressed")).toBe("true");
+    expect(buttonByText("コイン")?.getAttribute("aria-pressed")).toBe("false");
+    await clickButton("登録プレイヤーを使う");
+    expect((document.querySelector(".random-items-field textarea") as HTMLTextAreaElement).value).toContain("アオイ");
+    await clickButton("ルーレットを回す");
+    await waitForText("選ばれたのは", 300);
+    expect(wheelStatus?.textContent).toMatch(/^選ばれたのは (アオイ|ミナト|ユイ|レン)$/);
+    expect(wheelStatus?.textContent).not.toContain("もう一度");
+    expect(["アオイ", "ミナト", "ユイ", "レン"].some((name) => screenText().includes(`選ばれたのは${name}`))).toBe(true);
+    expect(localStorage.getItem("party:v1:random-wheel-items")).toContain("アオイ");
+
+    await clickButton("コイン");
+    expect(buttonByText("コイン")?.getAttribute("aria-pressed")).toBe("true");
+    await clickButton("コインを投げる");
+    await waitForText("結果", 300);
+    expect(screenText()).toMatch(/結果[表裏]/);
+
+    await clickButton("サイコロ");
+    await clickButton("3個");
+    expect(buttonByText("1個")?.getAttribute("aria-pressed")).toBe("false");
+    expect(buttonByText("3個")?.getAttribute("aria-pressed")).toBe("true");
+    await clickButton("サイコロを振る");
+    await waitForText("合計", 300);
+    expect(document.querySelectorAll(".random-dice-row span")).toHaveLength(3);
+    const total = Number(document.querySelector(".random-result-label strong")?.textContent);
+    expect(total).toBeGreaterThanOrEqual(3);
+    expect(total).toBeLessThanOrEqual(18);
+  });
+
+  it("handles wheel boundaries, locks controls, and removes and restores a result", async () => {
+    stubReducedMotion();
+    await renderApp();
+    await clickButton("ランダムツール");
+    await waitForText("候補を2件以上入力");
+
+    await fillTextarea("赤");
+    expect(buttonByText("ルーレットを回す")?.disabled).toBe(true);
+    await fillTextarea("  赤  \n\n青");
+    expect(screenText()).toContain("2/20件");
+    expect(buttonByText("ルーレットを回す")?.disabled).toBe(false);
+
+    const family = "👨‍👩‍👧‍👦";
+    await fillTextarea(`${family.repeat(9)}\n通常`);
+    expect(document.querySelector(".random-wheel text")?.textContent).toBe(`${family.repeat(8)}…`);
+
+    const tooMany = Array.from({ length: 21 }, (_item, index) => `候補${index + 1}`).join("\n");
+    await fillTextarea(tooMany);
+    expect(screenText()).toContain("20/20件");
+    expect(document.querySelectorAll(".random-wheel path")).toHaveLength(20);
+
+    await fillTextarea("赤\n青\n緑");
+    await clickButton("ルーレットを回す");
+    expect(buttonByText("回転中…")?.disabled).toBe(true);
+    expect((document.querySelector(".random-items-field textarea") as HTMLTextAreaElement).disabled).toBe(true);
+    expect(buttonByText("登録プレイヤーを使う")?.disabled).toBe(true);
+    await waitForText("選ばれたのは", 300);
+
+    await clickButton("もう一度");
+    expect(buttonByText("回転中…")?.disabled).toBe(true);
+    await waitForText("選ばれたのは", 300);
+
+    await clickButton("候補から外す");
+    expect(screenText()).toContain("2/20件");
+    expect(buttonByText("外した候補を戻す")?.disabled).toBe(false);
+    await clickButton("ルーレットを回す");
+    await waitForText("選ばれたのは", 300);
+    expect(buttonByText("候補から外す")?.disabled).toBe(true);
+    await clickButton("外した候補を戻す");
+    expect(screenText()).toContain("3/20件");
+  });
+
+  it("restores only wheel candidates after reload and clears transient results", async () => {
+    stubReducedMotion();
+    await renderApp();
+    await clickButton("ランダムツール");
+    await waitForText("候補を2件以上入力");
+    await fillTextarea("赤\n青\n緑");
+    await clickButton("ルーレットを回す");
+    await waitForText("選ばれたのは", 300);
+    await clickButton("候補から外す");
+    expect(buttonByText("外した候補を戻す")?.disabled).toBe(false);
+
+    await remountApp();
+    await waitForText("ルーレットを回す");
+    expect((document.querySelector(".random-items-field textarea") as HTMLTextAreaElement).value.split("\n")).toHaveLength(2);
+    expect(screenText()).not.toContain("選ばれたのは");
+    expect(buttonByText("外した候補を戻す")?.disabled).toBe(true);
+  });
+
+  it("locks coin and dice controls while their results are being decided", async () => {
+    stubReducedMotion();
+    await renderApp();
+    await clickButton("ランダムツール");
+    await waitForText("候補を2件以上入力");
+
+    await clickButton("コイン");
+    await clickButton("コインを投げる");
+    expect(buttonByText("回転中…")?.disabled).toBe(true);
+    await waitForText("結果", 300);
+    expect(buttonByText("コインを投げる")?.disabled).toBe(false);
+
+    await clickButton("サイコロ");
+    await clickButton("3個");
+    await clickButton("サイコロを振る");
+    expect(buttonByText("回転中…")?.disabled).toBe(true);
+    expect(buttonByText("1個")?.disabled).toBe(true);
+    expect(buttonByText("2個")?.disabled).toBe(true);
+    expect(buttonByText("3個")?.disabled).toBe(true);
+    await waitForText("合計", 300);
+    expect(buttonByText("サイコロを振る")?.disabled).toBe(false);
+  });
+
+  it("keeps the random utility usable when all storage writes are denied", async () => {
+    stubReducedMotion();
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("denied"); });
+    await renderApp();
+
+    await clickButton("ランダムツール");
+    await waitForText("候補を2件以上入力");
+    await clickButton("登録プレイヤーを使う");
+    await clickButton("ルーレットを回す");
+    await waitForText("選ばれたのは", 300);
+
+    expect(screenText()).toContain("選ばれたのは");
+    expect(setItem).toHaveBeenCalled();
+    setItem.mockRestore();
+  });
 });
 
 async function renderApp() {
@@ -345,6 +501,21 @@ async function fillInput(placeholder: string, value: string) {
   });
 }
 
+async function fillTextarea(value: string) {
+  const textarea = document.querySelector<HTMLTextAreaElement>(".random-items-field textarea");
+  expect(textarea, "random wheel textarea").toBeTruthy();
+  await act(async () => {
+    const valueSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+    valueSetter?.call(textarea, value);
+    textarea?.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea?.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+function stubReducedMotion() {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+}
+
 function buttons() {
   return Array.from(document.querySelectorAll("button"));
 }
@@ -361,8 +532,9 @@ function setupTopicText() {
   return document.querySelector(".topic-preview-card strong")?.textContent ?? "";
 }
 
-async function waitForText(text: string) {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
+async function waitForText(text: string, timeoutMs = 200) {
+  const attempts = Math.max(1, Math.ceil(timeoutMs / 10));
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     if (screenText().includes(text)) return;
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 10));

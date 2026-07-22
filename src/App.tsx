@@ -1,6 +1,5 @@
-import L from "leaflet";
 import type * as React from "react";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { CountdownTimer } from "./components/CountdownTimer";
 import { PlayerSetup } from "./components/PlayerSetup";
 import { AdSlot, FinalResultActions, PassDevice, PlayerOrder, PlayerStrip, Topbar } from "./components/PartyScreens";
@@ -19,18 +18,6 @@ import {
   savePlayers
 } from "./core/storage";
 import { ActiveSessionRef, GameId, GameSummary, Player } from "./core/types";
-import {
-  createGeoAnswer,
-  currentGeoLocation,
-  defaultGeoConfig,
-  GeoAnswer,
-  GeoConfig,
-  GeoLocation,
-  GeoState,
-  replaceCurrentGeoLocation,
-  roundAnswers,
-  totalGeoScore
-} from "./games/geoGuessr";
 import {
   defaultDrinkingGamesConfig,
   drinkingGameCountries,
@@ -74,8 +61,6 @@ import {
   type WordInfiltratorConfig,
   type WordInfiltratorState
 } from "./games/wordInfiltrator";
-import { loadMapillaryStreetImage, type StreetImageLoadResult } from "./games/mapillaryProvider";
-import { loadPlayableGeoLocations } from "./games/geoLocationRepository";
 import { InsiderAnswerCategory, insiderAnswers } from "./data/insiderAnswers";
 import {
   defaultInsiderGuessConfig,
@@ -120,11 +105,12 @@ import {
   type OneWordClueState
 } from "./games/oneWordClue";
 
-type Screen = "home" | "players" | "setup" | "game" | "bill-split";
+type Screen = "home" | "players" | "setup" | "game" | "bill-split" | "random-tools";
 
 const AddedTableGameScreens = lazy(() => import("./features/AddedTableGames"));
 const QuickPartyGameScreens = lazy(() => import("./features/QuickPartyGames"));
 const BillSplit = lazy(() => import("./features/BillSplit"));
+const RandomTools = lazy(() => import("./features/RandomTools"));
 const addedTableGameIds = ["word-infiltrator", "insider-guess", "spy-location", "spectrum-meter", "ranking-answers", "fake-artist"] as const satisfies readonly GameId[];
 const quickPartyGameIds = ["majority-match", "one-word-clue"] as const satisfies readonly GameId[];
 
@@ -230,7 +216,6 @@ type PersistedAppState = {
   screen: Screen;
   selectedGame: GameId | null;
   players: Player[];
-  geoConfig: GeoConfig;
   numberConfig: NumberTalkConfig;
   werewolfConfig: WerewolfConfig;
   drinkingGamesConfig: DrinkingGamesConfig;
@@ -246,7 +231,6 @@ type PersistedAppState = {
 };
 
 type RestoredAppState = PersistedAppState & {
-  geoState: GeoState | null;
   numberState: NumberTalkState | null;
   werewolfState: WerewolfState | null;
   drinkingGamesState: DrinkingGamesState | null;
@@ -265,7 +249,6 @@ export function App() {
   const [screen, setScreen] = useState<Screen>(restored?.screen ?? "home");
   const [selectedGame, setSelectedGame] = useState<GameId | null>(restored?.selectedGame ?? null);
   const [players, setPlayers] = useState<Player[]>(() => restored?.players ?? loadPlayers());
-  const [geoConfig, setGeoConfig] = useState<GeoConfig>(() => restored?.geoConfig ?? defaultGeoConfig());
   const [numberConfig, setNumberConfig] = useState<NumberTalkConfig>(() => restored?.numberConfig ?? defaultNumberTalkConfig());
   const [werewolfConfig, setWerewolfConfig] = useState<WerewolfConfig>(() => normalizeWerewolfConfig(restored?.werewolfConfig ?? defaultWerewolfConfig(), players.length));
   const [drinkingGamesConfig] = useState<DrinkingGamesConfig>(() => restored?.drinkingGamesConfig ?? defaultDrinkingGamesConfig());
@@ -277,7 +260,6 @@ export function App() {
   const [fakeArtistConfig, setFakeArtistConfig] = useState<FakeArtistConfig>(() => restored?.fakeArtistConfig ?? defaultFakeArtistConfig());
   const [majorityMatchConfig, setMajorityMatchConfig] = useState<MajorityMatchConfig>(() => restored?.majorityMatchConfig ?? defaultMajorityMatchConfig());
   const [oneWordClueConfig, setOneWordClueConfig] = useState<OneWordClueConfig>(() => restored?.oneWordClueConfig ?? defaultOneWordClueConfig());
-  const [geoState, setGeoState] = useState<GeoState | null>(restored?.geoState ?? null);
   const [numberState, setNumberState] = useState<NumberTalkState | null>(restored?.numberState ?? null);
   const [werewolfState, setWerewolfState] = useState<WerewolfState | null>(restored?.werewolfState ?? null);
   const [drinkingGamesState, setDrinkingGamesState] = useState<DrinkingGamesState | null>(restored?.drinkingGamesState ?? null);
@@ -309,7 +291,6 @@ export function App() {
   useEffect(() => {
     const gameState = activeSession
       ? getActiveGameState(activeSession.gameId, {
-          geoState,
           numberState,
           werewolfState,
           drinkingGamesState,
@@ -337,7 +318,6 @@ export function App() {
       screen,
       selectedGame,
       players,
-      geoConfig,
       numberConfig,
       werewolfConfig,
       drinkingGamesConfig,
@@ -355,7 +335,6 @@ export function App() {
     screen,
     selectedGame,
     players,
-    geoConfig,
     numberConfig,
     werewolfConfig,
     drinkingGamesConfig,
@@ -367,7 +346,6 @@ export function App() {
     fakeArtistConfig,
     majorityMatchConfig,
     oneWordClueConfig,
-    geoState,
     numberState,
     werewolfState,
     drinkingGamesState,
@@ -387,7 +365,6 @@ export function App() {
   function navigateHome() {
     clearGameSession(activeSession);
     setActiveSession(null);
-    setGeoState(null);
     setNumberState(null);
     setWerewolfState(null);
     setDrinkingGamesState(null);
@@ -408,7 +385,6 @@ export function App() {
     if (!isGameAvailable(gameId)) return;
     clearGameSession(activeSession);
     setActiveSession(null);
-    setGeoState(null);
     setNumberState(null);
     setWerewolfState(null);
     setDrinkingGamesState(null);
@@ -441,25 +417,11 @@ export function App() {
       const nextSession = { sessionId: createSessionId(selectedGame), gameId: selectedGame };
       setMajorityMatchState(null);
       setOneWordClueState(null);
-      if (selectedGame === "geo") {
-        const state = await getGameDefinition("geo").createState({ players, config: { ...geoConfig, rounds: 1 }, seed });
-        setGeoState(state);
-        setNumberState(null);
-        setWerewolfState(null);
-        setDrinkingGamesState(null);
-        setWordInfiltratorState(null);
-        setInsiderGuessState(null);
-        setSpyLocationState(null);
-        setSpectrumMeterState(null);
-        setRankingAnswersState(null);
-        setFakeArtistState(null);
-      }
       if (selectedGame === "number-talk") {
         const config = withValidNumberTalkTopic(numberConfig);
         setNumberConfig(config);
         const state = await getGameDefinition("number-talk").createState({ players, config, seed });
         setNumberState(state);
-        setGeoState(null);
         setWerewolfState(null);
         setDrinkingGamesState(null);
         setWordInfiltratorState(null);
@@ -474,7 +436,6 @@ export function App() {
         setWerewolfConfig(config);
         const state = await getGameDefinition("werewolf").createState({ players, config, seed });
         setWerewolfState(state);
-        setGeoState(null);
         setNumberState(null);
         setDrinkingGamesState(null);
         setWordInfiltratorState(null);
@@ -487,7 +448,6 @@ export function App() {
       if (selectedGame === "drinking-games") {
         const state = await getGameDefinition("drinking-games").createState({ players, config: drinkingGamesConfig, seed });
         setDrinkingGamesState(state);
-        setGeoState(null);
         setNumberState(null);
         setWerewolfState(null);
         setWordInfiltratorState(null);
@@ -500,7 +460,6 @@ export function App() {
       if (selectedGame === "word-infiltrator") {
         const state = await getGameDefinition("word-infiltrator").createState({ players, config: wordInfiltratorConfig, seed });
         setWordInfiltratorState(state);
-        setGeoState(null);
         setNumberState(null);
         setWerewolfState(null);
         setDrinkingGamesState(null);
@@ -513,7 +472,6 @@ export function App() {
       if (selectedGame === "insider-guess") {
         const state = await getGameDefinition("insider-guess").createState({ players, config: insiderGuessConfig, seed });
         setInsiderGuessState(state);
-        setGeoState(null);
         setNumberState(null);
         setWerewolfState(null);
         setDrinkingGamesState(null);
@@ -526,7 +484,6 @@ export function App() {
       if (selectedGame === "spy-location") {
         const state = await getGameDefinition("spy-location").createState({ players, config: spyLocationConfig, seed });
         setSpyLocationState(state);
-        setGeoState(null);
         setNumberState(null);
         setWerewolfState(null);
         setDrinkingGamesState(null);
@@ -539,7 +496,6 @@ export function App() {
       if (selectedGame === "spectrum-meter") {
         const state = await getGameDefinition("spectrum-meter").createState({ players, config: spectrumMeterConfig, seed });
         setSpectrumMeterState(state);
-        setGeoState(null);
         setNumberState(null);
         setWerewolfState(null);
         setDrinkingGamesState(null);
@@ -552,7 +508,6 @@ export function App() {
       if (selectedGame === "ranking-answers") {
         const state = await getGameDefinition("ranking-answers").createState({ players, config: rankingAnswersConfig, seed });
         setRankingAnswersState(state);
-        setGeoState(null);
         setNumberState(null);
         setWerewolfState(null);
         setDrinkingGamesState(null);
@@ -565,7 +520,6 @@ export function App() {
       if (selectedGame === "fake-artist") {
         const state = await getGameDefinition("fake-artist").createState({ players, config: fakeArtistConfig, seed });
         setFakeArtistState(state);
-        setGeoState(null);
         setNumberState(null);
         setWerewolfState(null);
         setDrinkingGamesState(null);
@@ -578,7 +532,6 @@ export function App() {
       if (selectedGame === "majority-match") {
         const state = await getGameDefinition("majority-match").createState({ players, config: majorityMatchConfig, seed });
         setMajorityMatchState(state);
-        setGeoState(null);
         setNumberState(null);
         setWerewolfState(null);
         setDrinkingGamesState(null);
@@ -592,7 +545,6 @@ export function App() {
       if (selectedGame === "one-word-clue") {
         const state = await getGameDefinition("one-word-clue").createState({ players, config: oneWordClueConfig, seed });
         setOneWordClueState(state);
-        setGeoState(null);
         setNumberState(null);
         setWerewolfState(null);
         setDrinkingGamesState(null);
@@ -612,7 +564,7 @@ export function App() {
 
   return (
     <main className="app-shell">
-      {screen === "home" && <HomeScreen onPlayers={() => setScreen("players")} onSelect={openSetup} onBillSplit={() => setScreen("bill-split")} />}
+      {screen === "home" && <HomeScreen onPlayers={() => setScreen("players")} onSelect={openSetup} onBillSplit={() => setScreen("bill-split")} onRandomTools={() => setScreen("random-tools")} />}
       {screen === "players" && <PlayerSetup players={players} setPlayers={setPlayers} onBack={navigateHome} />}
       {screen === "bill-split" && (
         <Suspense
@@ -626,12 +578,22 @@ export function App() {
           <BillSplit players={players} onHome={navigateHome} />
         </Suspense>
       )}
+      {screen === "random-tools" && (
+        <Suspense
+          fallback={
+            <section className="screen">
+              <Topbar title="読み込み中" />
+              <div className="content"><div className="notice">ランダムツールを読み込んでいます。</div></div>
+            </section>
+          }
+        >
+          <RandomTools players={players} onHome={navigateHome} />
+        </Suspense>
+      )}
       {screen === "setup" && selectedSummary && (
         <SetupScreen
           game={selectedSummary}
           players={players}
-          geoConfig={geoConfig}
-          setGeoConfig={setGeoConfig}
           numberConfig={numberConfig}
           setNumberConfig={setNumberConfig}
           werewolfConfig={werewolfConfig}
@@ -662,9 +624,6 @@ export function App() {
       )}
       {screen === "game" && selectedGame === "werewolf" && werewolfState && (
         <WerewolfGame state={werewolfState} setState={setWerewolfState} players={players} onHome={navigateHome} onRestart={startGame} />
-      )}
-      {screen === "game" && selectedGame === "geo" && geoState && (
-        <GeoGame state={geoState} setState={setGeoState} players={players} onHome={navigateHome} onRestart={startGame} />
       )}
       {screen === "game" && selectedGame === "drinking-games" && drinkingGamesState && (
         <DrinkingGamesBrowser state={drinkingGamesState} setState={setDrinkingGamesState} onHome={navigateHome} />
@@ -735,7 +694,7 @@ function isQuickPartyGame(gameId: GameId): gameId is (typeof quickPartyGameIds)[
   return quickPartyGameIds.includes(gameId as (typeof quickPartyGameIds)[number]);
 }
 
-function HomeScreen(props: { onPlayers: () => void; onSelect: (gameId: GameId) => void; onBillSplit: () => void }) {
+function HomeScreen(props: { onPlayers: () => void; onSelect: (gameId: GameId) => void; onBillSplit: () => void; onRandomTools: () => void }) {
   return (
     <section className="screen">
       <Topbar
@@ -778,6 +737,10 @@ function HomeScreen(props: { onPlayers: () => void; onSelect: (gameId: GameId) =
             <span className="game-card-title-row"><span className="game-title">今日の割り勘</span><span className="pill">2-8人</span></span>
             <span className="game-description">お店ごとに割合を決めて、一日の合計をコピーできます。</span>
           </button>
+          <button className="game-card utility-card random-utility-card" type="button" onClick={props.onRandomTools}>
+            <span className="game-card-title-row"><span className="game-title">ランダムツール</span><span className="pill">3種類</span></span>
+            <span className="game-description">ルーレット、コイン、サイコロをすぐ使えます。</span>
+          </button>
         </section>
         <AdSlot context="home" />
         <nav className="legal-links" aria-label="サイト情報">
@@ -792,8 +755,6 @@ function HomeScreen(props: { onPlayers: () => void; onSelect: (gameId: GameId) =
 function SetupScreen(props: {
   game: GameSummary;
   players: Player[];
-  geoConfig: GeoConfig;
-  setGeoConfig: (config: GeoConfig) => void;
   numberConfig: NumberTalkConfig;
   setNumberConfig: (config: NumberTalkConfig) => void;
   werewolfConfig: WerewolfConfig;
@@ -833,23 +794,6 @@ function SetupScreen(props: {
         <PlayerStrip players={props.players} />
         {!hasValidPlayerCount && <div className="notice">{props.game.minPlayers}人以上で開始できます。</div>}
         {props.game.id === "werewolf" && !hasValidRoleCount && <div className="notice">カードを合計{roleTargetCards}枚にしてください。</div>}
-        {props.game.id === "geo" && (
-          <>
-            <RuleDetails
-              title="ルール"
-              summary="全員が同じ日本の地点画像を見て、地図にピンを刺します。"
-              details={["1問で勝負します。", "地点移動はありません。画像は左右に少しずらして確認できます。", "全員の回答後、正解地点と距離、点数を表示します。"]}
-            />
-            <SettingRow title="時間" detail="1人ごとの回答時間">
-              <Segmented
-                value={String(props.geoConfig.timeLimitSec)}
-                options={["0", "60", "90"]}
-                labels={{ "0": "なし", "60": "60", "90": "90" }}
-                onChange={(value) => props.setGeoConfig({ ...props.geoConfig, timeLimitSec: Number(value) as 0 | 60 | 90 })}
-              />
-            </SettingRow>
-          </>
-        )}
         {props.game.id === "number-talk" && (
           <>
             <RuleDetails
@@ -1269,124 +1213,6 @@ function NumberTalkGame(props: {
   );
 }
 
-function GeoGame(props: {
-  state: GeoState;
-  setState: (state: GeoState) => void;
-  players: Player[];
-  onHome: () => void;
-  onRestart: () => void | Promise<void>;
-}) {
-  const [locationSwap, setLocationSwap] = useState<"idle" | "loading" | "failed">("idle");
-  const [isImageReady, setIsImageReady] = useState(false);
-  const currentPlayer = props.players[props.state.currentPlayerIndex] ?? props.players[0];
-  const location = currentGeoLocation(props.state);
-  const currentRoundAnswers = roundAnswers(props.state);
-  const canReplaceLocation = currentRoundAnswers.length === 0;
-
-  async function replaceFailedGeoLocation() {
-    if (!canReplaceLocation || locationSwap === "loading") return;
-    setLocationSwap("loading");
-    try {
-      const locations = await loadPlayableGeoLocations();
-      const replacement = pickReplacementGeoLocation(locations, location);
-      if (!replacement) {
-        setLocationSwap("failed");
-        return;
-      }
-      props.setState(replaceCurrentGeoLocation(props.state, replacement));
-      setLocationSwap("idle");
-    } catch {
-      setLocationSwap("failed");
-    }
-  }
-
-  if (props.state.phase === "handoff") {
-    return <PassDevice label="回答者" player={currentPlayer} onConfirm={() => props.setState({ ...props.state, phase: "viewingImage" })} />;
-  }
-
-  if (props.state.phase === "viewingImage") {
-    return (
-      <section className="screen">
-        <Topbar title="地点画像" eyebrow="日本マップ当て" onBack={() => props.setState({ ...props.state, phase: "handoff" })} />
-        <div className="content">
-          <GeoImagePanel
-            location={location}
-            playerName={currentPlayer.nickname}
-            canReplaceLocation={canReplaceLocation}
-            isReplacingLocation={locationSwap === "loading"}
-            replaceLocationError={locationSwap === "failed"}
-            onReplaceLocation={replaceFailedGeoLocation}
-            onReadyChange={setIsImageReady}
-          />
-          <button className="primary" type="button" onClick={() => props.setState({ ...props.state, phase: "placingPin", pendingGuess: undefined })} disabled={!isImageReady}>
-            地図を開く
-          </button>
-        </div>
-      </section>
-    );
-  }
-
-  if (props.state.phase === "placingPin") {
-    return (
-      <section className="screen">
-        <Topbar title="回答する" eyebrow="日本マップ当て" onBack={() => props.setState({ ...props.state, phase: "viewingImage" })} />
-        <div className="content">
-          <LeafletAnswerMap value={props.state.pendingGuess} onChange={(pendingGuess) => props.setState({ ...props.state, pendingGuess })} />
-          <button className="primary" type="button" onClick={() => props.state.pendingGuess && submitGeoGuess(props.state, props.setState, props.players, currentPlayer.id, props.state.pendingGuess)} disabled={!props.state.pendingGuess}>
-            回答を確定
-          </button>
-        </div>
-      </section>
-    );
-  }
-
-  if (props.state.phase === "roundResult") {
-    const answers = roundAnswers(props.state);
-    return (
-      <section className="screen">
-        <Topbar title="結果" eyebrow="日本マップ当て" />
-        <div className="content">
-          <div className="topic">正解地点とみんなの回答</div>
-          <p className="muted">色付きの線は、正解地点から各プレイヤーの回答までの距離です。</p>
-          <LeafletResultMap location={location} answers={answers} players={props.players} />
-          <GeoResultRows answers={answers} players={props.players} />
-          <AdSlot context="result" />
-          <FinalResultActions onRestart={props.onRestart} onHome={props.onHome} />
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className="screen">
-      <Topbar title="結果" eyebrow="日本マップ当て" />
-      <div className="content">
-        <div className="result-list">
-          {[...props.players]
-            .sort((a, b) => totalGeoScore(props.state, b.id) - totalGeoScore(props.state, a.id))
-            .map((player, index) => (
-              <div key={player.id} className="result-row">
-                <span className="rank">{index + 1}</span>
-                <strong>{player.nickname}</strong>
-                <span className="score">{totalGeoScore(props.state, player.id)}</span>
-              </div>
-            ))}
-        </div>
-        <AdSlot context="result" />
-        <FinalResultActions onRestart={props.onRestart} onHome={props.onHome} />
-      </div>
-    </section>
-  );
-}
-
-function pickReplacementGeoLocation(locations: GeoLocation[], currentLocation: GeoLocation) {
-  const candidates = locations.filter((location) => {
-    return location.enabled && location.qaStatus !== "rejected" && location.id !== currentLocation.id && !location.mapillaryImageId.startsWith("fallback-");
-  });
-  if (!candidates.length) return null;
-  return candidates[Math.floor(Math.random() * candidates.length)] ?? candidates[0];
-}
-
 function DrinkingGamesBrowser(props: {
   state: DrinkingGamesState;
   setState: (state: DrinkingGamesState) => void;
@@ -1771,19 +1597,6 @@ function formatWerewolfVote(vote: WerewolfVote | undefined, players: Player[]) {
   return players.find((player) => player.id === vote.targetPlayerId)?.nickname ?? "不明";
 }
 
-function submitGeoGuess(state: GeoState, setState: (state: GeoState) => void, players: Player[], playerId: string, guess: { lat: number; lng: number }) {
-  const answer = createGeoAnswer(state, playerId, guess);
-  const answers = [...state.answers, answer];
-  const isLastPlayer = state.currentPlayerIndex >= players.length - 1;
-  setState({
-    ...state,
-    answers,
-    pendingGuess: undefined,
-    currentPlayerIndex: isLastPlayer ? state.currentPlayerIndex : state.currentPlayerIndex + 1,
-    phase: isLastPlayer ? "roundResult" : "handoff"
-  });
-}
-
 function moveNumberOrder(state: NumberTalkState, setState: (state: NumberTalkState) => void, index: number, direction: -1 | 1) {
   const nextIndex = index + direction;
   if (nextIndex < 0 || nextIndex >= state.order.length) return;
@@ -1804,239 +1617,6 @@ function getNumberResultRows(state: NumberTalkState, players: Player[]) {
       return { player, number, breaksOrder };
     })
     .filter((item): item is { player: Player; number: number; breaksOrder: boolean } => Boolean(item));
-}
-
-function LeafletAnswerMap(props: { value?: { lat: number; lng: number }; onChange: (value: { lat: number; lng: number }) => void }) {
-  const mapRef = useRef<HTMLDivElement | null>(null);
-  const leafletRef = useRef<L.Map | null>(null);
-  const markerRef = useRef<L.Marker | null>(null);
-  const onChangeRef = useRef(props.onChange);
-  onChangeRef.current = props.onChange;
-
-  useEffect(() => {
-    if (!mapRef.current || leafletRef.current) return;
-    const map = L.map(mapRef.current, { zoomControl: false }).setView([36.2, 138.2], 5);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap contributors"
-    }).addTo(map);
-    map.on("click", (event) => {
-      const next = { lat: event.latlng.lat, lng: event.latlng.lng };
-      if (markerRef.current) {
-        markerRef.current.setLatLng(event.latlng);
-      } else {
-        markerRef.current = L.marker(event.latlng, { icon: createLeafletPinIcon("#171717") }).addTo(map);
-      }
-      onChangeRef.current(next);
-    });
-    leafletRef.current = map;
-    setTimeout(() => map.invalidateSize(), 0);
-    return () => {
-      map.remove();
-      leafletRef.current = null;
-      markerRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!props.value) return;
-    if (markerRef.current) {
-      markerRef.current.setLatLng([props.value.lat, props.value.lng]);
-    } else if (leafletRef.current) {
-      markerRef.current = L.marker([props.value.lat, props.value.lng], { icon: createLeafletPinIcon("#171717") }).addTo(leafletRef.current);
-    }
-  }, [props.value?.lat, props.value?.lng]);
-
-  return (
-    <div className="map-answer-shell">
-      <div className="leaflet-panel" ref={mapRef} />
-      {!props.value && <div className="map-answer-hint">地図をタップしてピンを置く</div>}
-    </div>
-  );
-}
-
-function LeafletResultMap(props: { location: GeoState["roundLocations"][number]; answers: GeoAnswer[]; players: Player[] }) {
-  const mapRef = useRef<HTMLDivElement | null>(null);
-  const leafletRef = useRef<L.Map | null>(null);
-
-  useEffect(() => {
-    if (!mapRef.current || leafletRef.current) return;
-    const map = L.map(mapRef.current, { zoomControl: false }).setView([props.location.lat, props.location.lng], 5);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap contributors"
-    }).addTo(map);
-
-    const points: L.LatLngExpression[] = [[props.location.lat, props.location.lng]];
-    const correctLatLng: L.LatLngExpression = [props.location.lat, props.location.lng];
-    L.marker(correctLatLng, { icon: createLeafletPinIcon("#0f8b8d", true) }).addTo(map).bindTooltip("正解地点", { permanent: true, direction: "top", offset: [0, -30] });
-    props.answers.forEach((answer) => {
-      const player = props.players.find((item) => item.id === answer.playerId);
-      const guessLatLng: L.LatLngExpression = [answer.guessLat, answer.guessLng];
-      points.push(guessLatLng);
-      L.polyline([correctLatLng, guessLatLng], {
-        color: player?.color ?? "#171717",
-        weight: 5,
-        opacity: 0.9,
-        dashArray: "8 8",
-        lineCap: "round",
-        lineJoin: "round"
-      }).addTo(map);
-      L.marker(guessLatLng, { icon: createLeafletPinIcon(player?.color ?? "#171717") }).addTo(map).bindTooltip(player?.nickname ?? "回答", { direction: "bottom", offset: [0, 10] });
-    });
-    map.fitBounds(L.latLngBounds(points), { padding: [28, 28], maxZoom: 8 });
-    leafletRef.current = map;
-    setTimeout(() => map.invalidateSize(), 0);
-    return () => {
-      map.remove();
-      leafletRef.current = null;
-    };
-  }, []);
-
-  return <div className="leaflet-panel" ref={mapRef} />;
-}
-
-function createLeafletPinIcon(color: string, isCorrect = false) {
-  const className = isCorrect ? "map-pin correct" : "map-pin";
-  return L.divIcon({
-    className: "map-pin-wrapper",
-    html: `<span class="${className}" style="--pin-color:${color}"></span>`,
-    iconSize: [26, 32],
-    iconAnchor: [13, 32]
-  });
-}
-
-function GeoResultRows(props: { answers: GeoAnswer[]; players: Player[] }) {
-  return (
-    <div className="result-list">
-      {props.answers
-        .map((answer) => ({ answer, player: props.players.find((player) => player.id === answer.playerId) }))
-        .filter((item): item is { answer: GeoAnswer; player: Player } => Boolean(item.player))
-        .sort((a, b) => b.answer.score - a.answer.score)
-        .map(({ answer, player }) => (
-          <div key={player.id} className="result-row">
-            <span className="dot" style={{ "--chip-color": player.color } as React.CSSProperties} />
-            <strong>{player.nickname}</strong>
-            <span className="score">
-              {answer.score}
-              <small>{formatDistance(answer.distanceMeters)}</small>
-            </span>
-          </div>
-        ))}
-    </div>
-  );
-}
-
-function GeoImagePanel(props: {
-  location: GeoState["roundLocations"][number];
-  playerName: string;
-  canReplaceLocation: boolean;
-  isReplacingLocation: boolean;
-  replaceLocationError: boolean;
-  onReplaceLocation: () => void;
-  onReadyChange: (isReady: boolean) => void;
-}) {
-  const [result, setResult] = useState<StreetImageLoadResult | { status: "loading" }>({ status: "loading" });
-  const [retryCount, setRetryCount] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    setResult({ status: "loading" });
-    props.onReadyChange(false);
-    loadMapillaryStreetImage(props.location).then((nextResult) => {
-      if (!cancelled) {
-        setResult(nextResult);
-        props.onReadyChange(nextResult.status === "ready");
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [props.location.id, props.onReadyChange, retryCount]);
-
-  const isReady = result.status === "ready";
-  const image = isReady ? result.image : null;
-  const copy = getStreetImageCopy(result, props.location);
-  const hasImageError = result.status !== "loading" && result.status !== "ready";
-
-  return (
-    <div className={`street-view ${isReady ? "has-image" : ""}`}>
-      {image && <PannableStreetImage src={image.imageUrl} />}
-      <div className="street-hud">
-        <span>{props.playerName}</span>
-      </div>
-      <div className="street-copy">
-        <strong>{copy.title}</strong>
-        <span>{copy.detail}</span>
-        {image ? (
-          <a href={image.sourceUrl} target="_blank" rel="noreferrer">
-            {image.attribution}
-          </a>
-        ) : (
-          <span>{copy.message}</span>
-        )}
-        {"retryable" in result && result.retryable && (
-          <button className="inline-action" type="button" onClick={() => setRetryCount((count) => count + 1)}>
-            再試行
-          </button>
-        )}
-        {hasImageError && props.canReplaceLocation && (
-          <button className="inline-action" type="button" onClick={props.onReplaceLocation} disabled={props.isReplacingLocation}>
-            {props.isReplacingLocation ? "切り替え中" : "別の地点に切り替える"}
-          </button>
-        )}
-        {hasImageError && !props.canReplaceLocation && <span>回答済みの人がいるため、この地点のまま再試行してください。</span>}
-        {props.replaceLocationError && <span>代替地点を読み込めませんでした。通信状態を確認して再試行してください。</span>}
-      </div>
-    </div>
-  );
-}
-
-function PannableStreetImage(props: { src: string }) {
-  const [offset, setOffset] = useState(0);
-  const dragRef = useRef<{ startX: number; startOffset: number } | null>(null);
-
-  function clampOffset(value: number) {
-    return Math.max(-22, Math.min(22, value));
-  }
-
-  return (
-    <div
-      className="street-image-pan"
-      onPointerDown={(event) => {
-        dragRef.current = { startX: event.clientX, startOffset: offset };
-        event.currentTarget.setPointerCapture(event.pointerId);
-      }}
-      onPointerMove={(event) => {
-        if (!dragRef.current) return;
-        const delta = ((event.clientX - dragRef.current.startX) / Math.max(1, event.currentTarget.clientWidth)) * 100;
-        setOffset(clampOffset(dragRef.current.startOffset + delta));
-      }}
-      onPointerUp={() => {
-        dragRef.current = null;
-      }}
-      onPointerCancel={() => {
-        dragRef.current = null;
-      }}
-    >
-      <img className="street-image" src={props.src} alt="Mapillary street-level imagery" style={{ transform: `translateX(${offset}%)` }} draggable={false} />
-      <span className="pan-hint">画像を左右にずらす</span>
-    </div>
-  );
-}
-
-function getStreetImageCopy(result: StreetImageLoadResult | { status: "loading" }, location: GeoState["roundLocations"][number]) {
-  const place = location.difficulty === "hard" ? "固定画像 / 難しめ" : "固定画像 / 日本のどこか";
-  if (result.status === "loading") {
-    return { title: "Mapillary image", detail: place, message: "画像を読み込み中です。" };
-  }
-  if (result.status === "ready") {
-    return { title: "Mapillary image", detail: place, message: "" };
-  }
-  return { title: "Mapillary image", detail: place, message: result.message };
-}
-
-function formatDistance(meters: number) {
-  if (meters < 1000) return `${meters}m`;
-  return `${(meters / 1000).toFixed(1)}km`;
 }
 
 function NightScreen(props: { roleId?: RoleId; title: string; text: string; result?: string; onNext: () => void }) {
@@ -2242,7 +1822,6 @@ function restorePersistedAppState(): RestoredAppState | null {
   const persisted = sanitizePersistedAppState(loadAppState<PersistedAppState>());
   if (!persisted) return null;
 
-  let geoState: GeoState | null = null;
   let numberState: NumberTalkState | null = null;
   let werewolfState: WerewolfState | null = null;
   let drinkingGamesState: DrinkingGamesState | null = null;
@@ -2255,9 +1834,6 @@ function restorePersistedAppState(): RestoredAppState | null {
   let majorityMatchState: MajorityMatchState | null = null;
   let oneWordClueState: OneWordClueState | null = null;
 
-  if (persisted.activeSession?.gameId === "geo") {
-    geoState = sanitizeLoadedGeoState(loadGameSession<GeoState>(persisted.activeSession.sessionId, "geo")?.state ?? null);
-  }
   if (persisted.activeSession?.gameId === "number-talk") {
     numberState = sanitizeLoadedNumberTalkState(loadGameSession<NumberTalkState>(persisted.activeSession.sessionId, "number-talk")?.state ?? null);
   }
@@ -2293,8 +1869,7 @@ function restorePersistedAppState(): RestoredAppState | null {
   }
 
   const hasActiveState = Boolean(
-    geoState ??
-      numberState ??
+    numberState ??
       werewolfState ??
       drinkingGamesState ??
       wordInfiltratorState ??
@@ -2314,7 +1889,6 @@ function restorePersistedAppState(): RestoredAppState | null {
 
   return {
     ...persisted,
-    geoState,
     numberState,
     werewolfState,
     drinkingGamesState,
@@ -2332,7 +1906,6 @@ function restorePersistedAppState(): RestoredAppState | null {
 function getActiveGameState(
   gameId: GameId,
   states: {
-    geoState: GeoState | null;
     numberState: NumberTalkState | null;
     werewolfState: WerewolfState | null;
     drinkingGamesState: DrinkingGamesState | null;
@@ -2346,7 +1919,6 @@ function getActiveGameState(
     oneWordClueState: OneWordClueState | null;
   }
 ) {
-  if (gameId === "geo") return states.geoState;
   if (gameId === "number-talk") return states.numberState;
   if (gameId === "werewolf") return states.werewolfState;
   if (gameId === "drinking-games") return states.drinkingGamesState;
@@ -2409,18 +1981,6 @@ function hasLegacyRobberSwapAlreadyApplied(state: WerewolfState) {
   const robberAction = state.nightActions.find((action): action is Extract<WerewolfNightAction, { type: "robber" }> => action.type === "robber");
   if (!robberAction?.actorId || !robberAction.targetPlayerId || robberAction.skipped || !robberAction.newRole) return false;
   return state.playerCurrentCards[robberAction.actorId] === robberAction.newRole && state.playerCurrentCards[robberAction.targetPlayerId] === state.playerInitialCards[robberAction.actorId];
-}
-
-function sanitizeLoadedGeoState(state: GeoState | null): GeoState | null {
-  if (!state) return null;
-  const next = sanitizeReloadPhase(state, {
-    placingPin: "viewingImage",
-    confirmGuess: "viewingImage"
-  });
-  if (next && (state.phase === "placingPin" || state.phase === "confirmGuess")) {
-    next.pendingGuess = undefined;
-  }
-  return next;
 }
 
 function sanitizeLoadedDrinkingGamesState(state: DrinkingGamesState | null): DrinkingGamesState | null {

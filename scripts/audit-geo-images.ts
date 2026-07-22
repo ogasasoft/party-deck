@@ -123,7 +123,7 @@ console.log(
 
 function parseArgs(argv: string[]): Args {
   return {
-    dataDir: path.resolve(readOption(argv, "--data-dir") ?? "public/data/geo"),
+    dataDir: path.resolve(readOption(argv, "--data-dir") ?? "archive/geo/data"),
     outputPath: path.resolve(readOption(argv, "--output") ?? "data-generated/mapillary/image-audit-report.json"),
     limit: Number(readOption(argv, "--limit") ?? 500),
     concurrency: Math.max(1, Number(readOption(argv, "--concurrency") ?? 4))

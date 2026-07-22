@@ -16,7 +16,7 @@
 - プレイヤー情報はニックネームと担当色のみ。
 - 1台のスマホを順番に受け渡して遊ぶ。
 - 最大8人。
-- 初期ゲームは日本マップ当て、ナンバートーク、ワンナイト人狼、飲み会ゲーム辞典、ワード潜入者、インサイダー推理、スパイロケーション、価値観メーター、ランキング回答、エセアーティスト、みんなと同じ回答、ワンワード協力クイズ。
+- 日本マップ当ては本番提供から外し、復活用資産のみ `archive/geo` とGeo固有ソースに保管する。現在のゲームはナンバートーク、ワンナイト人狼、飲み会ゲーム辞典、ワード潜入者、インサイダー推理、スパイロケーション、価値観メーター、ランキング回答、エセアーティスト、みんなと同じ回答、ワンワード協力クイズ。
 - 収益化は広告想定だが、秘密情報や回答操作を邪魔しないことを優先する。
 - 本家系ゲームの進行、役職構成、勝敗条件、採点方法はできるだけ準拠して再現する。文章、画像、音声、UIデザイン、お題リスト、カード文面は許諾やライセンス確認なしに転載しない。
 
@@ -85,7 +85,7 @@ src/games/drinkingGames.ts
 src/data/numberTopics.ts
 src/data/werewolfRoles.ts
 src/data/drinkingGames.ts
-public/data/geo/               # 本番出題地点データ
+archive/geo/data/              # 非公開の復活用地点データ
 scripts/                       # 収集、検証、smoke
 ```
 
@@ -131,16 +131,12 @@ scripts/                       # 収集、検証、smoke
 AdSenseは `VITE_ADSENSE_CLIENT` と `VITE_ADSENSE_SLOT` が両方ある場合だけ読み込みます。未設定時はプレースホルダー表示です。
 AdSense本番有効化前に `/privacy.html`、`/terms.html`、必要地域の同意管理を確認してください。有効化後は `npm run audit:production:ads` を通します。
 
-## Mapillary運用
+## Mapillaryアーカイブ運用
 
-- ブラウザアプリは `VITE_MAPILLARY_ACCESS_TOKEN` を使う。
-- 収集スクリプトは `MAPILLARY_ACCESS_TOKEN` を使う。
-- `public/data/geo/playable-index.json` と `public/data/geo/chunks/*.json` が本番アプリの出題データ。
-- `data-generated/` は生成途中の作業ディレクトリでgit管理外。
-- Mapillary画像は `src/games/mapillaryProvider.ts` でアプリ内部型へ変換する。UIからMapillaryの生responseに直接依存しない。
-- attributionリンクを消さない。
-- 友人テスト前は `npm run audit:geo-images` でMapillary画像の実取得成功率を確認する。
-- 問題画像を見つけたら `npm run geo:qa -- --id <location-id> --status rejected --dry-run` で確認し、問題なければ `--dry-run` なしで反映する。`playable-index.json` はスクリプトが再構築する。
+- 日本マップ当ては本番サービスに含めない。Geoコードを本番のimport graphへ戻さない。
+- 地点データは `archive/geo/data` に置き、`public/data/geo` を作らない。
+- 収集、検証、QAは復活用資産の保守としてのみ行い、手順は `archive/geo/README.md` に従う。
+- Mapillary token、`.env.local`、生成途中の `data-generated/` をコミットしない。
 
 ## リリース前チェック
 
@@ -160,14 +156,14 @@ UI変更がある場合:
 - 飲み会ゲーム辞典で検索、国フィルタ、下ネタ特別フィルタが動くことを確認する。
 - ナンバートークを結果まで進める。
 - ワンナイト人狼を結果まで進める。
-- 日本マップ当てでMapillary画像が出ることを確認する。
+- トップに日本マップ当てが表示されず、本番bundleにGeo/Mapillaryが混入しないことを確認する。
 - リロード時に秘密情報へ直接戻らないことを確認する。
 
 デプロイ後:
 
 - https://party-deck.vercel.app が200で返ること。
 - トップ画面でコンソールエラーがないこと。
-- GuessrでMapillary実画像が表示されること。
+- 日本マップ当てのカードや公開地点データが存在しないこと。
 
 ## ドキュメント更新ルール
 

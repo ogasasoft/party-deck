@@ -1,7 +1,7 @@
 import path from "node:path";
 import { writeValidationReport } from "./geo-quality";
 
-const dataDir = path.resolve(process.env.GEO_DATA_DIR ?? process.argv[2] ?? "public/data/geo");
+const dataDir = path.resolve(process.env.GEO_DATA_DIR ?? process.argv[2] ?? "archive/geo/data");
 const outputPath = path.resolve(process.env.GEO_VALIDATION_OUTPUT ?? process.argv[3] ?? "data-generated/mapillary/validation-report.json");
 
 const report = await writeValidationReport(dataDir, outputPath);

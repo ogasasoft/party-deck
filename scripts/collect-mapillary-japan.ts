@@ -67,7 +67,7 @@ const OUT_DIR = path.resolve(
   process.env.MAPILLARY_OUT_DIR ?? (preset === "japan" ? "data-generated/mapillary" : `data-generated/mapillary/${preset}`)
 );
 const PUBLIC_DATA_DIR = path.join(OUT_DIR, "public", "data", "geo");
-const SHOULD_INSTALL_PUBLIC = args.includes("--install-public") || process.env.MAPILLARY_INSTALL_PUBLIC === "1";
+const SHOULD_INSTALL_ARCHIVE = args.includes("--install-archive") || process.env.MAPILLARY_INSTALL_ARCHIVE === "1";
 const SHOULD_RESET = args.includes("--reset") || process.env.MAPILLARY_RESET === "1";
 const token = process.env.MAPILLARY_ACCESS_TOKEN ?? process.env.VITE_MAPILLARY_ACCESS_TOKEN;
 
@@ -147,14 +147,14 @@ async function main() {
       chunkFiles
     },
     output: path.relative(process.cwd(), PUBLIC_DATA_DIR),
-    installedPublic: SHOULD_INSTALL_PUBLIC
+    installedArchive: SHOULD_INSTALL_ARCHIVE
   });
 
-  if (SHOULD_INSTALL_PUBLIC) {
-    const publicTarget = path.resolve("public/data/geo");
-    await rm(publicTarget, { recursive: true, force: true });
-    await cp(PUBLIC_DATA_DIR, publicTarget, { recursive: true });
-    console.log(`installed public data: ${path.relative(process.cwd(), PUBLIC_DATA_DIR)} -> public/data/geo`);
+  if (SHOULD_INSTALL_ARCHIVE) {
+    const archiveTarget = path.resolve("archive/geo/data");
+    await rm(archiveTarget, { recursive: true, force: true });
+    await cp(PUBLIC_DATA_DIR, archiveTarget, { recursive: true });
+    console.log(`installed archived data: ${path.relative(process.cwd(), PUBLIC_DATA_DIR)} -> archive/geo/data`);
   }
 
   console.log(`done preset=${preset} playable=${playableIndex.length} output=${path.relative(process.cwd(), PUBLIC_DATA_DIR)}`);

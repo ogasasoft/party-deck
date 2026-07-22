@@ -59,12 +59,15 @@ import {
   type BillSplitParticipant
 } from "../tools/billSplit";
 import { BILL_SPLIT_MAX_AGE_MS, clearBillSplitDay, loadBillSplitDay, saveBillSplitDay } from "../tools/billSplitStorage";
+import { flipCoin, formatWheelLabel, MAX_WHEEL_ITEM_CODE_UNITS, MAX_WHEEL_ITEM_GRAPHEMES, MAX_WHEEL_ITEMS, normalizeWheelItems, pickWheelIndex, randomInt, rollDice } from "../tools/randomTools";
+import { loadWheelItemsText, saveWheelItemsText } from "../tools/randomToolsStorage";
 
 const players = DEFAULT_PLAYERS.slice(0, 4);
 const fivePlayers: Player[] = [...players, { id: "p5", nickname: "ソラ", color: "#e76f51" }];
 
 beforeEach(() => {
   localStorage.clear();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -83,7 +86,7 @@ describe("Player profiles", () => {
 
 describe("Game registry", () => {
   it("resolves every registered game and keeps player ranges sane", () => {
-    expect(games).toHaveLength(12);
+    expect(games).toHaveLength(11);
     const ids = new Set<GameId>();
     games.forEach((game) => {
       ids.add(game.id);
@@ -133,6 +136,20 @@ describe("Storage", () => {
     expect(loadGameSession("s1", "werewolf")).toBeNull();
     clearGameSession({ sessionId: "s1", gameId: "number-talk" });
     expect(loadGameSession("s1", "number-talk")).toBeNull();
+  });
+
+  it("keeps the app usable when storage writes and removals are denied", () => {
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("denied"); });
+    expect(() => savePlayers(players)).not.toThrow();
+    expect(() => saveAppState({ screen: "home" })).not.toThrow();
+    expect(() => saveGameSession({ sessionId: "s1", gameId: "number-talk", state: {}, createdAt: "c", updatedAt: "u" })).not.toThrow();
+    expect(setItem).toHaveBeenCalledTimes(3);
+    setItem.mockRestore();
+
+    const removeItem = vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => { throw new Error("denied"); });
+    expect(() => clearAppState()).not.toThrow();
+    expect(() => clearGameSession({ sessionId: "s1", gameId: "number-talk" })).not.toThrow();
+    expect(removeItem).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -266,6 +283,89 @@ describe("Bill split", () => {
       bills: [{ ...createBill("b1", "1軒目", 100, "p1", [25, 25, 25, 25]), shares: [] }]
     }));
     expect(loadBillSplitDay()).toBeNull();
+  });
+});
+
+describe("Random tools", () => {
+  it("normalizes wheel candidates and caps them at twenty", () => {
+    const input = Array.from({ length: 24 }, (_item, index) => `  候補${index + 1}  `).join("\n\n");
+    const items = normalizeWheelItems(input);
+
+    expect(items).toHaveLength(MAX_WHEEL_ITEMS);
+    expect(items[0]).toBe("候補1");
+    expect(items[MAX_WHEEL_ITEMS - 1]).toBe("候補20");
+  });
+
+  it("caps stored labels by grapheme and truncates emoji display without corruption", () => {
+    const family = "👨‍👩‍👧‍👦";
+    const normalized = normalizeWheelItems(`${"😀".repeat(MAX_WHEEL_ITEM_GRAPHEMES + 5)}\n通常`);
+
+    expect(Array.from(normalized[0])).toHaveLength(MAX_WHEEL_ITEM_GRAPHEMES);
+    expect(formatWheelLabel(family.repeat(9))).toBe(`${family.repeat(8)}…`);
+    expect(formatWheelLabel(family.repeat(8))).toBe(family.repeat(8));
+  });
+
+  it("maps deterministic random values to wheel, coin, and dice boundaries", () => {
+    expect(pickWheelIndex(2, () => 0.999999)).toBe(1);
+    expect(pickWheelIndex(4, () => 0)).toBe(0);
+    expect(pickWheelIndex(4, () => 0.999999)).toBe(3);
+    expect(pickWheelIndex(MAX_WHEEL_ITEMS, () => 0.999999)).toBe(MAX_WHEEL_ITEMS - 1);
+    expect(flipCoin(() => 0)).toBe("heads");
+    expect(flipCoin(() => 0.999999)).toBe("tails");
+    expect(rollDice(1, () => 0)).toEqual([1]);
+    expect(rollDice(2, sequenceRandom([0, 0.999999]))).toEqual([1, 6]);
+    expect(rollDice(3, sequenceRandom([0, 0.5, 0.999999]))).toEqual([1, 4, 6]);
+  });
+
+  it("keeps repeated random outputs within each tool range", () => {
+    for (let index = 0; index < 100; index += 1) {
+      expect(pickWheelIndex(20)).toBeGreaterThanOrEqual(0);
+      expect(pickWheelIndex(20)).toBeLessThan(20);
+      expect(["heads", "tails"]).toContain(flipCoin());
+      expect(rollDice(3).every((value) => value >= 1 && value <= 6)).toBe(true);
+    }
+  });
+
+  it("rejects invalid counts and injected random values", () => {
+    expect(() => pickWheelIndex(1)).toThrow("2件");
+    expect(() => pickWheelIndex(21)).toThrow("20件");
+    expect(() => rollDice(0)).toThrow("1個");
+    expect(() => rollDice(4)).toThrow("3個");
+    expect(() => randomInt(6, () => 1)).toThrow("乱数値");
+    expect(() => randomInt(6, () => -0.1)).toThrow("乱数値");
+  });
+
+  it("rejects out-of-range crypto values and falls back when crypto is unavailable", () => {
+    const getRandomValues = vi.fn((values: Uint32Array) => {
+      values[0] = getRandomValues.mock.calls.length === 1 ? 0xffffffff : 7;
+      return values;
+    });
+    vi.stubGlobal("crypto", { getRandomValues });
+
+    expect(randomInt(6)).toBe(1);
+    expect(getRandomValues).toHaveBeenCalledTimes(2);
+
+    vi.stubGlobal("crypto", undefined);
+    const mathRandom = vi.spyOn(Math, "random").mockReturnValue(0.5);
+    expect(randomInt(6)).toBe(3);
+    mathRandom.mockRestore();
+  });
+
+  it("stores wheel candidates locally and tolerates unavailable storage", () => {
+    const oversized = Array.from({ length: MAX_WHEEL_ITEMS + 4 }, (_item, index) => `${index}:${"あ".repeat(MAX_WHEEL_ITEM_GRAPHEMES + 5)}`).join("\n");
+    saveWheelItemsText(oversized);
+    const savedItems = loadWheelItemsText().split("\n");
+    expect(savedItems).toHaveLength(MAX_WHEEL_ITEMS);
+    expect(savedItems.every((item) => Array.from(item).length <= MAX_WHEEL_ITEM_GRAPHEMES)).toBe(true);
+    expect(savedItems.every((item) => item.length <= MAX_WHEEL_ITEM_CODE_UNITS)).toBe(true);
+
+    vi.spyOn(Storage.prototype, "setItem").mockImplementationOnce(() => { throw new Error("quota"); });
+    expect(() => saveWheelItemsText("保存不可")).not.toThrow();
+  });
+
+  it("returns an empty candidate list when storage cannot be read", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementationOnce(() => { throw new Error("denied"); });
+    expect(loadWheelItemsText()).toBe("");
   });
 });
 

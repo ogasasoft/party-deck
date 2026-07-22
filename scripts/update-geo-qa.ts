@@ -71,14 +71,14 @@ console.log(
 );
 
 function parseArgs(argv: string[]): Args {
-  const dataDir = path.resolve(readOption(argv, "--data-dir") ?? "public/data/geo");
+  const dataDir = path.resolve(readOption(argv, "--data-dir") ?? "archive/geo/data");
   const ids = readRepeatedOption(argv, "--id").flatMap((value) => value.split(",").map((item) => item.trim()).filter(Boolean));
   const status = readOption(argv, "--status") as QaStatus | undefined;
   const enabledValue = readOption(argv, "--enabled");
   const dryRun = argv.includes("--dry-run");
 
   if (!ids.length || !status || !["unreviewed", "approved", "rejected"].includes(status)) {
-    console.error("Usage: npm run geo:qa -- --id <location-id>[,<location-id>] --status <unreviewed|approved|rejected> [--enabled true|false] [--data-dir public/data/geo] [--dry-run]");
+    console.error("Usage: npm run geo:qa -- --id <location-id>[,<location-id>] --status <unreviewed|approved|rejected> [--enabled true|false] [--data-dir archive/geo/data] [--dry-run]");
     process.exit(1);
   }
 

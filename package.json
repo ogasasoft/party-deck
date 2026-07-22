@@ -11,7 +11,7 @@
     "test": "vitest run --environment jsdom",
     "smoke": "tsx scripts/smoke-test.ts",
     "collect:mapillary": "tsx scripts/collect-mapillary-japan.ts",
-    "collect:mapillary:sample": "tsx scripts/collect-mapillary-japan.ts --sample --install-public --reset",
+    "collect:mapillary:sample": "tsx scripts/collect-mapillary-japan.ts --sample --install-archive --reset",
     "audit:geo-images": "tsx scripts/audit-geo-images.ts",
     "audit:production": "tsx scripts/audit-production.ts",
     "audit:production:ads": "tsx scripts/audit-production.ts --require-ads",

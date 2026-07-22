@@ -7,13 +7,9 @@ GitHub: https://github.com/ogasasoft/party-deck
 
 ## 現在の状態
 
-MVPとして、1台のスマホで初期3ゲームと追加テーブルゲーム8本を最後まで触れ、道具なし飲み会ゲーム辞典も確認できる状態です。
+MVPとして、1台のスマホでゲームと便利ツールを使え、道具なし飲み会ゲーム辞典も確認できる状態です。
 
-- 日本マップ当て
-  - Mapillaryの東京周辺サンプル100件を `public/data/geo` に投入済み
-  - 全員が同じ地点を順番に回答
-  - No Move固定、デッキ選択なし
-  - Mapillary画像とattributionを表示
+日本マップ当ては本番サービスから完全に外しています。ロジック、地点データ、運用スクリプトは将来復活できるよう `archive/geo` とGeo固有ソースに保管しています。復活手順は `archive/geo/README.md` を参照してください。
 - ナンバートーク
   - 数字は1から100固定
   - 手札は1人1枚
@@ -77,10 +73,10 @@ MVPとして、1台のスマホで初期3ゲームと追加テーブルゲーム
 - Vite
 - React
 - TypeScript
-- Leaflet
 - localStorage
-- Mapillary Graph API
 - Vercel
+
+LeafletとMapillary Graph APIは、日本マップ当ての復活用資産だけで使用します。
 
 ## セットアップ
 
@@ -101,7 +97,7 @@ VITE_ADSENSE_SLOT=
 用途:
 
 - `MAPILLARY_ACCESS_TOKEN`: 収集スクリプト用
-- `VITE_MAPILLARY_ACCESS_TOKEN`: ブラウザアプリでMapillary画像を取得するためのVite環境変数
+- `VITE_MAPILLARY_ACCESS_TOKEN`: Geo復活時のブラウザ用。現在の本番アプリは参照しない
 - `VITE_ADSENSE_CLIENT`: AdSense client id。未設定ならプレースホルダー表示
 - `VITE_ADSENSE_SLOT`: AdSense slot id。未設定ならプレースホルダー表示
 
@@ -153,7 +149,7 @@ src/
     types.ts                      # 共通型
   games/
     geoGuessr.ts                  # Guessr状態と採点
-    geoLocationRepository.ts      # public/data/geoの読み込み
+    geoLocationRepository.ts      # Geo復活時の地点読み込み
     mapillaryProvider.ts          # Mapillary API変換層
     numberTalk.ts                 # ナンバートーク状態と判定
     werewolf.ts                   # ワンナイト人狼状態と判定
@@ -179,7 +175,7 @@ src/
     fakeArtistTopics.ts           # エセアーティストのお題
     majorityMatchPrompts.ts       # みんなと同じ回答のお題
     oneWordClueWords.ts           # ワンワード協力クイズの答え
-public/data/geo/
+archive/geo/data/
   playable-index.json             # 出題地点index
   chunks/*.json                   # Mapillary地点chunk
 scripts/
@@ -192,6 +188,7 @@ docs/
   system-design-units.md          # unit設計
   implementation-spec.md          # 実装仕様
   bill-split-spec.md              # 店舗ごとの割合と一日集計を行う割り勘ツール仕様
+  random-tools-spec.md            # ルーレット、コイン、サイコロの便利ツール仕様
   drinking-games-database.md      # 飲み会ゲーム辞典の更新ルール
   table-game-expansion-spec.md    # パスアンドプレイ向け追加テーブルゲーム仕様
   table-game-expansion-plan.md    # 追加テーブルゲームの実装計画
@@ -220,7 +217,7 @@ AIエージェントで作業する場合は、まず [`AGENTS.md`](./AGENTS.md)
 
 ## Mapillaryデータ収集
 
-友人に遊んでもらえるMVPでは、東京周辺サンプルでゲーム全体を完成させる方針です。全国データ収集は後回しの拡張タスクです。
+日本マップ当ては本番提供していません。以下は復活用アーカイブの保守コマンドで、地点データは `archive/geo/data` に保存されます。
 
 小範囲テスト収集:
 
@@ -251,23 +248,23 @@ npm run geo:qa -- --id 1426328765487442 --status rejected
 npm run validate:geo
 ```
 
-`geo:qa` は該当chunkの `qaStatus` を更新し、`public/data/geo/playable-index.json` を再構築します。`rejected` の地点は出題候補から外れます。
+`geo:qa` は該当chunkの `qaStatus` を更新し、`archive/geo/data/playable-index.json` を再構築します。`rejected` の地点は復活時の出題候補から外れます。
 
 収集結果の投入先:
 
 ```txt
-public/data/geo/
+archive/geo/data/
   playable-index.json
   chunks/*.json
 ```
 
-生成途中の `data-generated/` はgit管理外です。公開アプリに反映したい地点データだけ `public/data/geo` に入れてコミットします。
+生成途中の `data-generated/` はgit管理外です。復活を正式決定するまで地点データを `public` 配下へ置かないでください。
 
 ## デプロイ
 
 Vercelの `party-deck` プロジェクトにGitHub連携済みです。`main` へのpushで本番デプロイされます。
 
-Vercel側には `VITE_MAPILLARY_ACCESS_TOKEN` を環境変数として登録済みです。値はリポジトリに含めません。
+Vercelに残っているMapillary環境変数は現在の本番bundleから参照されません。値はリポジトリに含めません。
 
 ## 重要な保守ルール
 
@@ -289,7 +286,6 @@ Vercel側には `VITE_MAPILLARY_ACCESS_TOKEN` を環境変数として登録済�
 詳しくは [`docs/task-list.md`](./docs/task-list.md) を参照してください。
 
 - iPhone Safari / Android Chromeの実機QA
-- 実機の低速回線でのGuessr画像ロード、リトライ、代替地点切替確認
 - 追加ゲーム全体を結果まで進める深いintegration test追加
 - AdSense本番有効化用のpublisher client id、slot id、必要地域の同意管理
 - 追加テーブルゲーム6本のiPhone Safari / Android Chrome戻る操作QA

@@ -1,5 +1,4 @@
 import { DEFAULT_PLAYERS, type ActiveSessionRef, type GameId, type Player } from "../src/core/types";
-import { createGeoState, defaultGeoConfig } from "../src/games/geoGuessr";
 import { createDrinkingGamesState, defaultDrinkingGamesConfig } from "../src/games/drinkingGames";
 import { createFakeArtistState, defaultFakeArtistConfig } from "../src/games/fakeArtist";
 import { createInsiderGuessState, defaultInsiderGuessConfig } from "../src/games/insiderGuess";
@@ -9,7 +8,7 @@ import { createSpyLocationState, defaultSpyLocationConfig } from "../src/games/s
 import { createSpectrumMeterState, defaultSpectrumMeterConfig } from "../src/games/spectrumMeter";
 import { createWerewolfState, defaultWerewolfConfig } from "../src/games/werewolf";
 import { createWordInfiltratorState, defaultWordInfiltratorConfig } from "../src/games/wordInfiltrator";
-import { fallbackGeoLocations } from "../src/data/geoLocations";
+import { MAX_WHEEL_ITEM_CODE_UNITS, MAX_WHEEL_ITEMS } from "../src/tools/randomTools";
 
 const conservativeBudgetBytes = 2 * 1024 * 1024;
 const eightPlayers: Player[] = [
@@ -39,7 +38,6 @@ const appState = {
   screen: "home",
   selectedGame: null,
   players: eightPlayers,
-  geoConfig: defaultGeoConfig(),
   numberConfig: defaultNumberTalkConfig(),
   werewolfConfig: defaultWerewolfConfig(),
   drinkingGamesConfig: defaultDrinkingGamesConfig(),
@@ -55,7 +53,7 @@ const appState = {
 const entries: Entry[] = [
   { key: "party:v1:players", value: eightPlayers },
   { key: "party:v1:app-state", value: appState },
-  { key: "geo", value: makeSession("geo", createGeoState(eightPlayers, defaultGeoConfig(), "storage", fallbackGeoLocations)) },
+  { key: "party:v1:random-wheel-items", value: Array.from({ length: MAX_WHEEL_ITEMS }, () => `a${"́".repeat(MAX_WHEEL_ITEM_CODE_UNITS - 1)}`).join("\n") },
   { key: "number-talk", value: makeSession("number-talk", createNumberTalkState(eightPlayers, defaultNumberTalkConfig(), "storage")) },
   { key: "werewolf", value: makeSession("werewolf", createWerewolfState(eightPlayers, defaultWerewolfConfig(), "storage")) },
   { key: "drinking-games", value: makeSession("drinking-games", createDrinkingGamesState(defaultDrinkingGamesConfig())) },

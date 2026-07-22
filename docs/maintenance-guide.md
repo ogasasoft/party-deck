@@ -6,14 +6,12 @@
 
 ## 現在の実装状態
 
-2026-06-05時点で、以下は完了しています。
+現在、以下は完了しています。
 
 - GitHub `ogasasoft/party-deck` に初期MVPをpush済み。
 - Vercel `party-deck` で本番公開済み。
-- `VITE_MAPILLARY_ACCESS_TOKEN` はVercel環境変数に登録済み。
 - `https://party-deck.vercel.app` でトップ画面表示を確認済み。
-- 本番で日本マップ当てのMapillary画像表示を確認済み。
-- 4人で3ゲームを最後まで進めるQAを実施済み。
+- 日本マップ当てを本番サービスから外し、復活用資産を `archive/geo` に保管済み。
 - 飲み会ゲーム辞典を追加済み。道具なしゲームの検索、国フィルタ、下ネタ特別フィルタ、ルール閲覧ができます。
 - `src/__tests__/app-flow.test.tsx` でプレイヤー追加、飲み会ゲーム辞典検索、ナンバートーク秘密表示中リロード復帰をDOM操作で検証済み。
 - Browserプラグインで本番URLをiPhone/Android相当のスマホ幅で事前QA済み。ただし実機確認の代替ではありません。
@@ -21,10 +19,11 @@
 未完了、または強化余地があるもの:
 
 - 実機のiPhone Safari / Android Chrome QA。
-- Guessr画像失敗時UXの実機低速回線QA。
 - 追加ゲーム全体を結果まで進める深いintegration test。
 - AdSense本番有効化用のpublisher client id、slot id、必要地域の同意管理。
-- Mapillary全国地点データの拡張はユーザー判断により現時点では行わない。
+- 日本マップ当てを復活する場合の外部条件再調査と実機QA。
+
+日本マップ当ての運用・復活方法は `archive/geo/README.md` を参照してください。Geoソースを本番コードからimportしたり、地点データを `public/data/geo` へ戻したりしない限り、サービスには含まれません。
 
 ## アーキテクチャの要点
 
@@ -35,6 +34,7 @@
 - プレイヤー設定: `party:v1:players`
 - アプリ状態: `party:v1:app`
 - ゲーム進行: `party:v1:sessions:{sessionId}:game:{gameId}`
+- ランダムツール候補: `party:v1:random-wheel-items`（最大20件・各40文字）
 
 ゲーム同士の干渉を避けるため、`sessionId` と `gameId` を保存keyに含めています。新しいゲームを追加するときも、この分離を崩さないでください。
 
@@ -120,18 +120,20 @@ Mapillary Graph APIのresponseをアプリ内部型 `StreetImage` に変換し�
 - network errorでもゲーム全体を止めない。
 - Mapillary attributionを表示できる情報を返す。
 
-### `public/data/geo`
+### `archive/geo/data`
 
-本番出題に使う静的地点データです。
+復活用に保管する非公開の静的地点データです。
 
 - `playable-index.json`: 出題候補の軽量index。
 - `chunks/*.json`: 実地点データ。
 
-`data-generated/` は収集結果の作業領域でgit管理外です。本番へ入れるデータだけ `public/data/geo` へコピーしてコミットします。
+`data-generated/` は収集結果の作業領域でgit管理外です。復活を正式決定するまで `public/data/geo` を作らないでください。
 
 ## ゲーム別メモ
 
 ### 日本マップ当て
+
+現在は本番提供対象外です。以下は復活用資産の仕様メモです。
 
 方針:
 
@@ -146,7 +148,7 @@ Mapillary Graph APIのresponseをアプリ内部型 `StreetImage` に変換し�
 - `src/games/geoGuessr.ts`
 - `src/games/geoLocationRepository.ts`
 - `src/games/mapillaryProvider.ts`
-- `public/data/geo`
+- `archive/geo/data`
 
 次に強化するなら:
 
@@ -232,7 +234,7 @@ Mapillary Graph APIのresponseをアプリ内部型 `StreetImage` に変換し�
 npm run collect:mapillary:sample
 ```
 
-このコマンドは東京周辺のサンプルを収集し、`public/data/geo` へ反映します。
+このコマンドは東京周辺のサンプルを収集し、`archive/geo/data` へ反映します。本番には配信されません。
 
 ### 通常収集
 
@@ -271,7 +273,7 @@ npm run geo:qa -- --id 1426328765487442 --status rejected
 npm run validate:geo
 ```
 
-`geo:qa` は該当chunkを書き換えたあと、`public/data/geo/playable-index.json` を再構築します。`rejected` または `enabled=false` の地点は出題候補から外れます。複数地点は `--id id1,id2` または `--id id1 --id id2` でまとめて更新できます。
+`geo:qa` は該当chunkを書き換えたあと、`archive/geo/data/playable-index.json` を再構築します。`rejected` または `enabled=false` の地点は復活時の出題候補から外れます。複数地点は `--id id1,id2` または `--id id1 --id id2` でまとめて更新できます。
 
 ## 変更時の基本手順
 
@@ -383,13 +385,11 @@ npm run audit:production
 
 手動確認:
 
-- トップに3ゲームが表示される。
+- トップに日本マップ当てが表示されない。
 - プレイヤーを2から8人で変更できる。
 - ナンバートークを結果まで進められる。
 - ワンナイト人狼を結果まで進められる。
-- 日本マップ当てを結果まで進められる。
 - 飲み会ゲーム辞典で検索、国フィルタ、下ネタ特別フィルタが動く。
-- GuessrでMapillary画像とattributionが表示される。
 - 秘密情報画面でリロードしても直接秘密情報が表示されない。
 - ゲーム一覧へ戻って別ゲームを始めても状態が混ざらない。
 
@@ -401,8 +401,7 @@ GitHub連携済みのため、`main` へpushするとVercelで本番デプロイ
 
 - `https://party-deck.vercel.app` が表示される。
 - コンソールエラーがない。
-- GuessrでMapillary画像が表示される。
-- Vercel環境変数 `VITE_MAPILLARY_ACCESS_TOKEN` が消えていない。
+- 日本マップ当てのカード、Geo bundle、`/data/geo` が配信されていない。
 
 ## 注意する秘密情報
 

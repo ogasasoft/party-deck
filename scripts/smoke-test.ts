@@ -45,13 +45,11 @@ const players = DEFAULT_PLAYERS.slice(0, 4);
 function smokeGameRegistry() {
   assert.deepEqual(
     games.map((game) => game.id),
-    ["drinking-games", "number-talk", "werewolf", "word-infiltrator", "insider-guess", "spy-location", "spectrum-meter", "ranking-answers", "fake-artist", "majority-match", "one-word-clue", "geo"]
+    ["drinking-games", "number-talk", "werewolf", "word-infiltrator", "insider-guess", "spy-location", "spectrum-meter", "ranking-answers", "fake-artist", "majority-match", "one-word-clue"]
   );
   assert.equal(games[0].id, "drinking-games");
-  assert.equal(getGameDefinition("geo").availability, "paused");
   assert.equal(isGameAvailable("geo"), false);
   assert.equal(isGameAvailable("drinking-games"), true);
-  assert.equal(getGameDefinition("geo").minPlayers, 2);
   assert.equal(getGameDefinition("number-talk").defaultConfig().numberMax, 100);
   assert.equal(countRoleCards(getGameDefinition("werewolf").defaultConfig().roleCounts), players.length + 2);
   assert.equal(getGameDefinition("drinking-games").defaultConfig().viewMode, "database");
